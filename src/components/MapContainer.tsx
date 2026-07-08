@@ -96,7 +96,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       const script = document.createElement('script')
       script.id = 'tmap-script'
       script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}`
-      script.async = true
+      script.async = false
       script.onload = () => {
         console.log('T-Map SDK 로드 완료')
         initializeMap()
