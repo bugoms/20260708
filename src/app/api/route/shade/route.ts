@@ -5,9 +5,11 @@ interface TmapRouteRequest {
   startY: number
   endX: number
   endY: number
+  startName: string
+  endName: string
   reqCoordType: 'WGS84GEO'
   resCoordType: 'WGS84GEO'
-  routeType: number
+  searchOption: number
 }
 
 async function callTmapApi(
@@ -27,9 +29,11 @@ async function callTmapApi(
     startY: startLat,
     endX: endLng,
     endY: endLat,
+    startName: encodeURIComponent('출발'),
+    endName: encodeURIComponent('도착'),
     reqCoordType: 'WGS84GEO',
     resCoordType: 'WGS84GEO',
-    routeType: 32,
+    searchOption: 4,
   }
 
   const response = await fetch(
@@ -49,21 +53,28 @@ async function callTmapApi(
   }
 
   const data = await response.json() as Record<string, unknown>
-  const features = (data.features as Array<{ geometry?: { coordinates?: Array<[number, number]> }; properties?: Record<string, unknown> }> | undefined) || []
+  const features = (data.features as Array<{ geometry?: { type?: string; coordinates?: unknown }; properties?: Record<string, unknown> }> | undefined) || []
 
   if (features.length === 0) {
     throw new Error('No route found')
   }
 
-  const route = features[0]
-  const coordinates = route.geometry?.coordinates || []
-  const properties = route.properties || {}
+  // 전체 거리/시간은 첫 Point feature의 totalDistance/totalTime에 담겨 있음
+  const summary = features[0].properties || {}
+  const distance = (summary.totalDistance as number) || 0
+  const duration = (summary.totalTime as number) || 0
 
-  const distance = (properties.distance as number) || 0
-  const duration = (properties.duration as number) || 0
+  // 경로선은 여러 LineString feature에 나뉘어 있으므로 모두 합침
+  const path: Array<[number, number]> = []
+  for (const feature of features) {
+    if (feature.geometry?.type === 'LineString') {
+      const coords = feature.geometry.coordinates as Array<[number, number]>
+      path.push(...coords)
+    }
+  }
 
   return {
-    path: coordinates,
+    path,
     distance,
     duration,
     shadeScore: 75,
