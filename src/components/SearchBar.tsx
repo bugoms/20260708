@@ -221,7 +221,7 @@ export function SearchBar() {
       />
       <p className="text-xs text-gray-500 dark:text-gray-400">
         장소를 검색하고 목록에서 선택하면 지도에 마커가 표시됩니다. 서비스
-        구역은 강남구 역삼동입니다 (지도의 보라색 경계선).
+        구역은 강남구 역삼동입니다 (지도의 코랄색 경계선).
       </p>
     </div>
   )
