@@ -18,16 +18,19 @@ export function RouteOptionButtons() {
     await fetchRoute('shade')
   }, [setSelectedRoute, fetchRoute])
 
+  const pillBase =
+    'h-[44px] px-4 rounded-full text-[15px] tracking-[-0.2px] transition active:scale-95 disabled:active:scale-100'
+
   return (
     <div className="grid grid-cols-2 gap-3">
       <button
         onClick={handleOptimalClick}
         disabled={isLoading}
-        className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+        className={`${pillBase} ${
           selectedRoute === 'optimal'
-            ? 'bg-blue-500 text-white shadow-lg'
-            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+            ? 'bg-[#0066cc] text-white font-semibold'
+            : 'bg-white text-[#0066cc] border border-[#0066cc]'
+        }`}
         aria-label="최적의 길 추천"
         aria-pressed={selectedRoute === 'optimal'}
       >
@@ -37,11 +40,11 @@ export function RouteOptionButtons() {
       <button
         onClick={handleShadeClick}
         disabled={isLoading}
-        className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+        className={`${pillBase} ${
           selectedRoute === 'shade'
-            ? 'bg-green-500 text-white shadow-lg'
-            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+            ? 'bg-[#0066cc] text-white font-semibold'
+            : 'bg-white text-[#0066cc] border border-[#0066cc]'
+        }`}
         aria-label="햇빛을 피하는 길 추천"
         aria-pressed={selectedRoute === 'shade'}
       >

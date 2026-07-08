@@ -16,18 +16,13 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  /* Apple 디자인: SF Pro 스택 (Apple 기기에선 실제 SF Pro로 해석됨) */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui,
+    'Segoe UI', 'Roboto', 'Helvetica Neue', 'Noto Sans KR', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #ffffff;
-  color: #000000;
-}
-
-body.dark {
-  background-color: #0f172a;
-  color: #ffffff;
+  color: #1d1d1f; /* Apple near-black ink */
 }
 
 #__next {
@@ -46,20 +41,12 @@ body.dark {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d2d2d7;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-body.dark ::-webkit-scrollbar-thumb {
-  background: #475569;
-}
-
-body.dark ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #a1a1a6;
 }
 
 /* Input Styling */
@@ -70,7 +57,7 @@ textarea {
 }
 
 input::placeholder {
-  color: #9ca3af;
+  color: #86868b;
 }
 
 /* Button Reset */

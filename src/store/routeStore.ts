@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Location, RouteResponse, RouteType } from '@/types/route'
+import type { RecentSearch } from '@/utils/recentSearches'
 
 interface RouteStore {
   startLocation: Location | null
@@ -11,6 +12,7 @@ interface RouteStore {
   error: string | null
   currentTime: number
   boundary: Array<Array<[number, number]>> | null // 역삼동 경계 링들 [lng,lat][][]
+  recentSearches: RecentSearch[]
 
   setStartLocation: (location: Location | null) => void
   setEndLocation: (location: Location | null) => void
@@ -21,6 +23,7 @@ interface RouteStore {
   setError: (error: string | null) => void
   setCurrentTime: (time: number) => void
   setBoundary: (boundary: Array<Array<[number, number]>> | null) => void
+  setRecentSearches: (searches: RecentSearch[]) => void
   reset: () => void
 }
 
@@ -34,6 +37,7 @@ const initialState = {
   error: null,
   currentTime: Date.now(),
   boundary: null,
+  recentSearches: [],
 }
 
 export const useRouteStore = create<RouteStore>((set) => ({
@@ -47,6 +51,12 @@ export const useRouteStore = create<RouteStore>((set) => ({
   setError: (error) => set({ error }),
   setCurrentTime: (time) => set({ currentTime: time }),
   setBoundary: (boundary) => set({ boundary }),
-  // 경계는 정적 데이터이므로 reset해도 유지
-  reset: () => set((state) => ({ ...initialState, boundary: state.boundary })),
+  setRecentSearches: (searches) => set({ recentSearches: searches }),
+  // 경계/최근검색은 정적·영속 데이터이므로 reset해도 유지
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      boundary: state.boundary,
+      recentSearches: state.recentSearches,
+    })),
 }))

@@ -4,93 +4,67 @@ import { useState } from 'react'
 import { SearchBar } from './SearchBar'
 import { RouteOptionButtons } from './RouteOptionButtons'
 import { RouteDetails } from './RouteDetails'
+import { RecentSearches } from './RecentSearches'
+
+/** 패널 내용 - 데스크톱 플로팅 패널과 모바일 드로어에서 공용 */
+function PanelContent() {
+  return (
+    <div className="flex flex-col min-h-full">
+      <h1 className="text-[21px] font-semibold text-[#1d1d1f] tracking-[-0.3px] mb-6">
+        길 찾기
+      </h1>
+
+      <div className="space-y-6">
+        <SearchBar />
+        <RouteOptionButtons />
+        <RouteDetails />
+      </div>
+
+      {/* 최근 검색 - 패널 하단 고정 */}
+      <div className="mt-auto pt-6">
+        <RecentSearches />
+      </div>
+    </div>
+  )
+}
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* Desktop: 지도 위에 떠 있는 frosted glass 패널 */}
       <aside
-        className="hidden lg:flex flex-col w-[350px] bg-white/90 backdrop-blur-sm shadow-lg overflow-hidden"
+        className="hidden lg:flex flex-col absolute left-5 top-5 bottom-5 w-[360px] z-10 bg-[#f5f5f7]/80 backdrop-blur-2xl border border-black/[0.08] rounded-[18px] overflow-hidden"
         role="complementary"
         aria-label="경로 검색 패널"
       >
         <div className="flex-1 overflow-y-auto p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            🗺️ 길 찾기
-          </h1>
-
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                경로 검색
-              </h2>
-              <SearchBar />
-            </div>
-
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                경로 선택
-              </h2>
-              <RouteOptionButtons />
-            </div>
-
-            <RouteDetails />
-          </div>
+          <PanelContent />
         </div>
       </aside>
 
-      {/* Mobile Drawer Button */}
-      <div className="lg:hidden fixed bottom-6 left-6 z-50">
+      {/* Mobile: 열기 버튼 */}
+      <div className="lg:hidden absolute bottom-6 left-6 z-20">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="bg-blue-500 text-white rounded-full p-4 shadow-lg hover:bg-blue-600 transition-colors"
-          aria-label="패널 열기/닫기"
+          className="h-[44px] px-6 bg-[#0066cc] text-white text-[15px] font-semibold tracking-[-0.2px] rounded-full active:scale-95 transition"
+          aria-label="검색 패널 열기/닫기"
         >
-          {isOpen ? '✕' : '☰'}
+          {isOpen ? '닫기' : '길 찾기'}
         </button>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile: frosted 드로어 */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 z-40">
+        <div className="lg:hidden absolute inset-0 z-10">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/30"
             onClick={() => setIsOpen(false)}
           ></div>
-          <aside className="absolute left-0 top-0 bottom-0 w-80 bg-white shadow-lg overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  🗺️ 길 찾기
-                </h1>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                  aria-label="패널 닫기"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                    경로 검색
-                  </h2>
-                  <SearchBar />
-                </div>
-
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                    경로 선택
-                  </h2>
-                  <RouteOptionButtons />
-                </div>
-
-                <RouteDetails />
-              </div>
+          <aside className="absolute left-3 right-3 top-3 bottom-20 bg-[#f5f5f7]/90 backdrop-blur-2xl border border-black/[0.08] rounded-[18px] overflow-y-auto">
+            <div className="p-6 min-h-full flex flex-col">
+              <PanelContent />
             </div>
           </aside>
         </div>

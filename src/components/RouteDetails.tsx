@@ -9,19 +9,19 @@ export function RouteDetails() {
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+      <div className="bg-[#fff2f0] border border-[#f0c8c0] rounded-[18px] px-4 py-3">
+        <p className="text-[14px] text-[#b64400] tracking-[-0.224px]">
+          {error}
+        </p>
       </div>
     )
   }
 
   if (!route) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500 dark:text-gray-400">
-          경로를 선택하면 상세 정보가 표시됩니다
-        </p>
-      </div>
+      <p className="text-[14px] text-[#86868b] tracking-[-0.224px] text-center py-6">
+        경로를 검색하면 상세 정보가 표시됩니다.
+      </p>
     )
   }
 
@@ -30,21 +30,25 @@ export function RouteDetails() {
   const shadeScore = route.shadeScore || 0
 
   return (
-    <div className="space-y-4 py-4 border-t border-gray-200 dark:border-gray-700">
+    <div className="bg-white border border-[#e0e0e0] rounded-[18px] p-5 space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+        <h3 className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] mb-3">
           경로 정보
         </h3>
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">거리</span>
-            <span className="font-semibold text-gray-900 dark:text-white">
+          <div className="flex justify-between items-baseline">
+            <span className="text-[14px] text-[#86868b] tracking-[-0.224px]">
+              거리
+            </span>
+            <span className="text-[17px] font-semibold text-[#1d1d1f] tracking-[-0.374px]">
               {distanceKm} km
             </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">예상 시간</span>
-            <span className="font-semibold text-gray-900 dark:text-white">
+          <div className="flex justify-between items-baseline">
+            <span className="text-[14px] text-[#86868b] tracking-[-0.224px]">
+              예상 시간
+            </span>
+            <span className="text-[17px] font-semibold text-[#1d1d1f] tracking-[-0.374px]">
               약 {durationMin}분
             </span>
           </div>
@@ -52,15 +56,15 @@ export function RouteDetails() {
       </div>
 
       {selectedRoute === 'shade' && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+        <div className="border-t border-[#f0f0f0] pt-4">
+          <h3 className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] mb-3">
             햇빛 회피도
           </h3>
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-[#f0f0f0] rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-green-400 to-green-500 h-full transition-all duration-300"
+                  className="bg-[#0066cc] h-full transition-all duration-300"
                   style={{ width: `${shadeScore}%` }}
                   role="progressbar"
                   aria-valuenow={shadeScore}
@@ -68,41 +72,41 @@ export function RouteDetails() {
                   aria-valuemax={100}
                 ></div>
               </div>
-              <span className="text-sm font-semibold text-gray-900 dark:text-white min-w-12 text-right">
+              <span className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] min-w-10 text-right">
                 {shadeScore}%
               </span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-[12px] text-[#86868b] tracking-[-0.12px]">
               {route.shadeDetail?.isNight
-                ? '지금은 해가 진 시간이에요. 햇빛 걱정 없이 걸으세요!'
+                ? '지금은 해가 진 시간이에요. 햇빛 걱정 없이 걸으세요.'
                 : shadeScore >= 75
-                  ? '매우 좋은 그늘길입니다'
+                  ? '매우 좋은 그늘길입니다.'
                   : shadeScore >= 50
-                    ? '적절한 그늘길입니다'
-                    : '햇빛이 있는 구간이 있습니다'}
+                    ? '적절한 그늘길입니다.'
+                    : '햇빛이 있는 구간이 있습니다.'}
             </p>
           </div>
 
           {route.shadeDetail && !route.shadeDetail.isNight && (
             <div className="mt-3 space-y-1.5">
               {route.shadeDetail.via && (
-                <p className="text-xs font-medium text-green-600 dark:text-green-400">
-                  🌳 {route.shadeDetail.via}
+                <p className="text-[12px] font-semibold text-[#0066cc] tracking-[-0.12px]">
+                  {route.shadeDetail.via}
                 </p>
               )}
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>🏢 건물 그림자</span>
+              <div className="flex justify-between text-[12px] text-[#86868b] tracking-[-0.12px]">
+                <span>건물 그림자</span>
                 <span>{route.shadeDetail.buildingShadowRatio}%</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>🌳 공원 구간</span>
+              <div className="flex justify-between text-[12px] text-[#86868b] tracking-[-0.12px]">
+                <span>공원 구간</span>
                 <span>{route.shadeDetail.parkRatio}%</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                <span>☀️ 햇빛 노출</span>
+              <div className="flex justify-between text-[12px] text-[#86868b] tracking-[-0.12px]">
+                <span>햇빛 노출</span>
                 <span>{route.shadeDetail.exposedRatio}%</span>
               </div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 pt-1">
+              <p className="text-[10px] text-[#a1a1a6] tracking-[-0.08px] leading-[1.3] pt-1">
                 현재 태양 고도 {route.shadeDetail.sunAltitude}° 기준 · 건물
                 그림자와 공원 데이터로 계산됨
               </p>

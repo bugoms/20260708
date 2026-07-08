@@ -43,32 +43,40 @@ function LocationField({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { boundary } = useRouteStore()
 
-  const search = useCallback(
-    async (keyword: string) => {
-      if (!keyword.trim()) {
-        setResults([])
-        setIsOpen(false)
-        return
-      }
+  // 외부에서 위치가 설정되면(최근 검색 클릭 등) 입력창 동기화
+  useEffect(() => {
+    if (location && location.name !== input) {
+      setInput(location.name)
+      setResults([])
+      setIsOpen(false)
+      setAreaWarning(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location])
 
-      setIsSearching(true)
-      try {
-        const response = await fetch(
-          `/api/poi?keyword=${encodeURIComponent(keyword.trim())}`
-        )
-        if (!response.ok) throw new Error('검색 실패')
-        const data = (await response.json()) as { results: PoiResult[] }
-        setResults(data.results)
-        setIsOpen(true)
-      } catch {
-        setResults([])
-        setIsOpen(false)
-      } finally {
-        setIsSearching(false)
-      }
-    },
-    []
-  )
+  const search = useCallback(async (keyword: string) => {
+    if (!keyword.trim()) {
+      setResults([])
+      setIsOpen(false)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch(
+        `/api/poi?keyword=${encodeURIComponent(keyword.trim())}`
+      )
+      if (!response.ok) throw new Error('검색 실패')
+      const data = (await response.json()) as { results: PoiResult[] }
+      setResults(data.results)
+      setIsOpen(true)
+    } catch {
+      setResults([])
+      setIsOpen(false)
+    } finally {
+      setIsSearching(false)
+    }
+  }, [])
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -133,7 +141,7 @@ function LocationField({
     <div ref={containerRef} className="relative">
       <label
         htmlFor={inputId}
-        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        className="block text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] mb-2"
       >
         {label}
       </label>
@@ -145,15 +153,15 @@ function LocationField({
           value={input}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          className="w-full h-[44px] px-5 pr-10 text-[15px] text-[#1d1d1f] tracking-[-0.2px] bg-white border border-black/[0.08] rounded-full focus:outline-none focus:ring-2 focus:ring-[#0071e3] focus:border-transparent transition-shadow"
           aria-label={`${label} 입력`}
           autoComplete="off"
         />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm">
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm">
           {isSearching ? (
-            <span className="inline-block w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+            <span className="inline-block w-4 h-4 border-2 border-[#d2d2d7] border-t-[#0066cc] rounded-full animate-spin" />
           ) : location ? (
-            <span className="text-green-500" title="위치 확정됨">
+            <span className="text-[#0066cc]" title="위치 확정됨">
               ✓
             </span>
           ) : null}
@@ -162,17 +170,17 @@ function LocationField({
 
       {areaWarning && (
         <p
-          className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+          className="mt-1.5 text-[12px] text-[#b64400] tracking-[-0.12px]"
           role="alert"
         >
-          ⚠️ {areaWarning}
+          {areaWarning}
         </p>
       )}
 
       {isOpen && (
-        <ul className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        <ul className="absolute z-50 left-0 right-0 mt-2 bg-white border border-[#e0e0e0] rounded-[18px] shadow-none max-h-60 overflow-y-auto overflow-x-hidden py-1">
           {results.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+            <li className="px-5 py-3 text-[14px] text-[#86868b] tracking-[-0.224px]">
               검색 결과가 없습니다.
             </li>
           ) : (
@@ -181,12 +189,12 @@ function LocationField({
                 <button
                   type="button"
                   onClick={() => handlePick(poi)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                  className="w-full text-left px-5 py-2.5 hover:bg-black/[0.04] active:scale-[0.99] transition"
                 >
-                  <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                  <span className="block text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] truncate">
                     {poi.name}
                   </span>
-                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                  <span className="block text-[12px] text-[#86868b] tracking-[-0.12px] truncate">
                     {poi.address}
                   </span>
                 </button>
@@ -204,22 +212,21 @@ export function SearchBar() {
     useRouteStore()
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <LocationField
         label="출발지"
-        placeholder="출발지를 검색하세요 (예: 강남역)"
+        placeholder="출발지를 검색하세요"
         location={startLocation}
         onSelect={setStartLocation}
       />
       <LocationField
         label="도착지"
-        placeholder="도착지를 검색하세요 (예: 역삼역)"
+        placeholder="도착지를 검색하세요"
         location={endLocation}
         onSelect={setEndLocation}
       />
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        장소를 검색하고 목록에서 선택하면 지도에 마커가 표시됩니다. 서비스
-        구역은 강남구 역삼동입니다 (지도의 코랄색 경계선).
+      <p className="text-[12px] text-[#86868b] tracking-[-0.12px] leading-[1.4]">
+        서비스 구역은 강남구 역삼동입니다 (지도의 코랄색 경계선).
       </p>
     </div>
   )

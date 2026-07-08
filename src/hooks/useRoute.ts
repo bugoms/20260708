@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useRouteStore } from '@/store/routeStore'
 import { getTmapRoute } from '@/utils/tmapService'
+import { saveRecentSearch } from '@/utils/recentSearches'
 import type { Location, RouteType, RouteResponse } from '@/types/route'
 
 export function useRoute() {
@@ -12,6 +13,7 @@ export function useRoute() {
     setError,
     setOptimalRoute,
     setShadeRoute,
+    setRecentSearches,
   } = useRouteStore()
 
   const fetchRoute = useCallback(
@@ -38,6 +40,9 @@ export function useRoute() {
         } else {
           setShadeRoute(route)
         }
+
+        // 검색 성공 시 최근 기록에 저장
+        setRecentSearches(saveRecentSearch(startLocation, endLocation))
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : '경로를 불러오는 중 오류가 발생했습니다.'
         setError(message)
@@ -45,7 +50,7 @@ export function useRoute() {
         setIsLoading(false)
       }
     },
-    [startLocation, endLocation, setIsLoading, setError, setOptimalRoute, setShadeRoute]
+    [startLocation, endLocation, setIsLoading, setError, setOptimalRoute, setShadeRoute, setRecentSearches]
   )
 
   const getSelectedRoute = useCallback((): RouteResponse | null => {
