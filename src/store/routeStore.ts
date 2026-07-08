@@ -10,6 +10,7 @@ interface RouteStore {
   isLoading: boolean
   error: string | null
   currentTime: number
+  boundary: Array<Array<[number, number]>> | null // 역삼동 경계 링들 [lng,lat][][]
 
   setStartLocation: (location: Location | null) => void
   setEndLocation: (location: Location | null) => void
@@ -19,6 +20,7 @@ interface RouteStore {
   setIsLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setCurrentTime: (time: number) => void
+  setBoundary: (boundary: Array<Array<[number, number]>> | null) => void
   reset: () => void
 }
 
@@ -31,6 +33,7 @@ const initialState = {
   isLoading: false,
   error: null,
   currentTime: Date.now(),
+  boundary: null,
 }
 
 export const useRouteStore = create<RouteStore>((set) => ({
@@ -43,5 +46,7 @@ export const useRouteStore = create<RouteStore>((set) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setCurrentTime: (time) => set({ currentTime: time }),
-  reset: () => set(initialState),
+  setBoundary: (boundary) => set({ boundary }),
+  // 경계는 정적 데이터이므로 reset해도 유지
+  reset: () => set((state) => ({ ...initialState, boundary: state.boundary })),
 }))

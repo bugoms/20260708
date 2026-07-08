@@ -22,6 +22,10 @@ interface TmapPolyline {
   setMap: (map: TmapMap | null) => void
 }
 
+interface TmapPolygon {
+  setMap: (map: TmapMap | null) => void
+}
+
 interface TmapBounds {
   extend: (latlng: TmapLatLng) => void
 }
@@ -38,6 +42,7 @@ interface Tmapv2Static {
   Size: new (width: number, height: number) => TmapSize
   Marker: new (options: Record<string, unknown>) => TmapMarker
   Polyline: new (options: Record<string, unknown>) => TmapPolyline
+  Polygon: new (options: Record<string, unknown>) => TmapPolygon
   LatLngBounds: new () => TmapBounds
 }
 
@@ -60,10 +65,18 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
   const mapRef = useRef<TmapMap | null>(null)
   const markersRef = useRef<TmapMarker[]>([])
   const polylinesRef = useRef<TmapPolyline[]>([])
+  const boundaryPolygonsRef = useRef<TmapPolygon[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const { startLocation, endLocation, optimalRoute, shadeRoute, selectedRoute } =
-    useRouteStore()
+  const {
+    startLocation,
+    endLocation,
+    optimalRoute,
+    shadeRoute,
+    selectedRoute,
+    boundary,
+    setBoundary,
+  } = useRouteStore()
 
   // 지도 초기화 - SDK(window.Tmapv2)가 로드될 때까지 기다렸다가 생성
   useEffect(() => {
@@ -109,6 +122,46 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       }
     }
   }, [onMapReady])
+
+  // 역삼동 행정 경계 로드 (최초 1회)
+  useEffect(() => {
+    if (boundary) return
+    let cancelled = false
+
+    fetch('/api/boundary')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { rings?: Array<Array<[number, number]>> } | null) => {
+        if (!cancelled && data?.rings && data.rings.length > 0) {
+          setBoundary(data.rings)
+        }
+      })
+      .catch(() => {
+        // 경계 로드 실패 시 표시/검증만 생략 (서비스는 정상 동작)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [boundary, setBoundary])
+
+  // 경계 폴리곤을 연하게 표시
+  useEffect(() => {
+    const Tmapv2 = window.Tmapv2
+    if (!mapRef.current || !Tmapv2 || isLoading || !boundary) return
+
+    boundaryPolygonsRef.current.forEach((polygon) => polygon.setMap(null))
+    boundaryPolygonsRef.current = boundary.map(
+      (ring) =>
+        new Tmapv2.Polygon({
+          paths: ring.map((coord) => new Tmapv2.LatLng(coord[1], coord[0])),
+          strokeColor: '#6366F1',
+          strokeWeight: 2,
+          fillColor: '#6366F1',
+          fillOpacity: 0.05,
+          map: mapRef.current,
+        })
+    )
+  }, [boundary, isLoading])
 
   // 출발/도착 마커 표시 + 지도 자동 이동
   useEffect(() => {

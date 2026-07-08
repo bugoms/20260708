@@ -2,7 +2,23 @@
 
 import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { useRouteStore } from '@/store/routeStore'
+import { pointInPolygon } from '@/utils/geo'
 import type { Location, PoiResult } from '@/types/route'
+
+/** 좌표가 서비스 구역(역삼동) 안인지 판정. 경계 미로드 시 통과 */
+function isInServiceArea(
+  lat: number,
+  lng: number,
+  boundary: Array<Array<[number, number]>> | null
+): boolean {
+  if (!boundary || boundary.length === 0) return true
+  return boundary.some((ring) =>
+    pointInPolygon(
+      { lat, lng },
+      ring.map((c) => ({ lat: c[1], lng: c[0] }))
+    )
+  )
+}
 
 interface LocationFieldProps {
   label: string
@@ -22,8 +38,10 @@ function LocationField({
   const [results, setResults] = useState<PoiResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  const [areaWarning, setAreaWarning] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { boundary } = useRouteStore()
 
   const search = useCallback(
     async (keyword: string) => {
@@ -56,8 +74,9 @@ function LocationField({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
       setInput(value)
-      // 입력을 수정하면 기존 확정 위치 해제
+      // 입력을 수정하면 기존 확정 위치/경고 해제
       onSelect(null)
+      setAreaWarning(null)
 
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => search(value), 400)
@@ -78,12 +97,22 @@ function LocationField({
 
   const handlePick = useCallback(
     (poi: PoiResult) => {
+      // 서비스 구역(역삼동) 밖이면 선택을 막고 안내
+      if (!isInServiceArea(poi.lat, poi.lng, boundary)) {
+        setAreaWarning(
+          `'${poi.name}'은(는) 서비스 구역 밖이에요. 역삼동 안의 장소를 선택해주세요.`
+        )
+        setIsOpen(false)
+        return
+      }
+
+      setAreaWarning(null)
       setInput(poi.name)
       setResults([])
       setIsOpen(false)
       onSelect({ name: poi.name, lat: poi.lat, lng: poi.lng })
     },
-    [onSelect]
+    [onSelect, boundary]
   )
 
   // 바깥 클릭 시 드롭다운 닫기
@@ -132,6 +161,15 @@ function LocationField({
           )}
         </span>
       </div>
+
+      {areaWarning && (
+        <p
+          className="mt-1.5 text-xs text-amber-600 dark:text-amber-400"
+          role="alert"
+        >
+          ⚠️ {areaWarning}
+        </p>
+      )}
 
       {isOpen && (
         <ul className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -182,7 +220,8 @@ export function SearchBar() {
         onSelect={setEndLocation}
       />
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        장소를 검색하고 목록에서 선택하면 지도에 마커가 표시됩니다.
+        장소를 검색하고 목록에서 선택하면 지도에 마커가 표시됩니다. 서비스
+        구역은 강남구 역삼동입니다 (지도의 보라색 경계선).
       </p>
     </div>
   )
