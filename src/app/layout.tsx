@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
@@ -17,11 +18,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const tmapApiKey = process.env.NEXT_PUBLIC_TMAP_API_KEY
+
   return (
     <html lang="ko">
       <head>
         <meta charSet="utf-8" />
         <meta name="theme-color" content="#ffffff" />
+        {tmapApiKey && (
+          <Script
+            src={`https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${tmapApiKey}`}
+            strategy="afterInteractive"
+          />
+        )}
       </head>
       <body className="antialiased">{children}</body>
     </html>

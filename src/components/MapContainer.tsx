@@ -74,49 +74,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       }
     }
 
-    const loadTmapSdk = () => {
-      const appKey = process.env.NEXT_PUBLIC_TMAP_API_KEY
-
-      if (!appKey) {
-        console.error(
-          'TMAP_API_KEY가 없습니다. 환경변수 NEXT_PUBLIC_TMAP_API_KEY를 설정하세요.'
-        )
-        setIsLoading(false)
-        return
-      }
-
-      console.log('T-Map SDK 로딩 중...')
-
-      const existingScript = document.getElementById('tmap-script')
-      if (existingScript) {
-        initializeMap()
-        return
-      }
-
-      const script = document.createElement('script')
-      script.id = 'tmap-script'
-      script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}`
-      script.async = false
-      script.onload = () => {
-        console.log('T-Map SDK 로드 완료')
-        initializeMap()
-      }
-      script.onerror = () => {
-        console.error('T-Map SDK 로드 실패. 앱 키를 확인하세요.')
-        setIsLoading(false)
-      }
-
-      document.head.appendChild(script)
-    }
-
-    loadTmapSdk()
-
-    return () => {
-      const script = document.getElementById('tmap-script')
-      if (script && document.head.contains(script)) {
-        document.head.removeChild(script)
-      }
-    }
+    initializeMap()
   }, [onMapReady])
 
   useEffect(() => {
