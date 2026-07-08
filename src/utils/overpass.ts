@@ -24,11 +24,13 @@ export interface AreaData {
 export interface WalkWay {
   nodeIds: number[]
   highway: string
+  isCrossing: boolean // 횡단보도 구간(footway=crossing) 여부
 }
 
 export interface WalkData extends AreaData {
   ways: WalkWay[]
   nodes: Map<number, Point> // OSM 노드 id -> 좌표
+  crossingNodeIds: Set<number> // 횡단보도 지점(highway=crossing) 노드 id
 }
 
 interface OverpassElement {
@@ -159,8 +161,10 @@ out tags geom;
 }
 
 // 보행 가능 도로 유형 (사유지/차량전용 제외)
+// primary/secondary(대로) 센터라인은 제외 - 대로변은 별도 매핑된 보도(footway)로 걷고,
+// 대로 횡단은 횡단보도 구간(footway=crossing)으로만 가능해진다.
 const WALKABLE_HIGHWAY =
-  '^(footway|path|pedestrian|steps|living_street|residential|service|unclassified|tertiary|secondary|primary)$'
+  '^(footway|path|pedestrian|steps|living_street|residential|service|unclassified|tertiary)$'
 
 const walkCache = new Map<string, { data: WalkData; expires: number }>()
 
@@ -190,6 +194,8 @@ way["highway"~"${WALKABLE_HIGHWAY}"]["foot"!="no"]["access"!="private"](${bboxSt
 .roads out body;
 node(w.roads);
 out skel qt;
+node["highway"="crossing"](${bboxStr});
+out body;
 (
   way["building"](${bboxStr});
   way["leisure"="park"](${bboxStr});
@@ -201,20 +207,28 @@ out tags geom;
 
   const ways: WalkWay[] = []
   const nodes = new Map<number, Point>()
+  const crossingNodeIds = new Set<number>()
   const areaElements: OverpassElement[] = []
 
   for (const el of json.elements) {
     if (el.type === 'node' && el.lat !== undefined && el.lon !== undefined) {
       nodes.set(el.id, { lat: el.lat, lng: el.lon })
+      if (el.tags?.['highway'] === 'crossing') {
+        crossingNodeIds.add(el.id)
+      }
     } else if (el.type === 'way' && el.tags?.['highway'] && el.nodes) {
-      ways.push({ nodeIds: el.nodes, highway: el.tags['highway'] })
+      ways.push({
+        nodeIds: el.nodes,
+        highway: el.tags['highway'],
+        isCrossing: el.tags['footway'] === 'crossing',
+      })
     } else if (el.type === 'way' && el.geometry) {
       areaElements.push(el)
     }
   }
 
   const area = parseBuildingsAndParks(areaElements)
-  const data: WalkData = { ...area, ways, nodes }
+  const data: WalkData = { ...area, ways, nodes, crossingNodeIds }
   walkCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
   return data
 }

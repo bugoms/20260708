@@ -38,10 +38,9 @@ function LocationField({
   const [results, setResults] = useState<PoiResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
-  const [areaWarning, setAreaWarning] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { boundary } = useRouteStore()
+  const { boundary, setAreaAlert } = useRouteStore()
 
   // 외부에서 위치가 설정되면(최근 검색 클릭 등) 입력창 동기화
   useEffect(() => {
@@ -49,7 +48,6 @@ function LocationField({
       setInput(location.name)
       setResults([])
       setIsOpen(false)
-      setAreaWarning(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location])
@@ -82,9 +80,8 @@ function LocationField({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
       setInput(value)
-      // 입력을 수정하면 기존 확정 위치/경고 해제
+      // 입력을 수정하면 기존 확정 위치 해제
       onSelect(null)
-      setAreaWarning(null)
 
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => search(value), 400)
@@ -105,22 +102,21 @@ function LocationField({
 
   const handlePick = useCallback(
     (poi: PoiResult) => {
-      // 서비스 구역(역삼동) 밖이면 선택을 막고 안내
+      // 서비스 구역(역삼동) 밖이면 선택을 막고 경고창 표시
       if (!isInServiceArea(poi.lat, poi.lng, boundary)) {
-        setAreaWarning(
-          `'${poi.name}'은(는) 서비스 구역 밖이에요. 역삼동 안의 장소를 선택해주세요.`
+        setAreaAlert(
+          `'${poi.name}'은(는) 역삼동을 벗어난 장소예요. 역삼동 안의 장소를 선택해주세요.`
         )
         setIsOpen(false)
         return
       }
 
-      setAreaWarning(null)
       setInput(poi.name)
       setResults([])
       setIsOpen(false)
       onSelect({ name: poi.name, lat: poi.lat, lng: poi.lng })
     },
-    [onSelect, boundary]
+    [onSelect, boundary, setAreaAlert]
   )
 
   // 바깥 클릭 시 드롭다운 닫기
@@ -167,15 +163,6 @@ function LocationField({
           ) : null}
         </span>
       </div>
-
-      {areaWarning && (
-        <p
-          className="mt-1.5 text-[12px] text-[#b64400] tracking-[-0.12px]"
-          role="alert"
-        >
-          {areaWarning}
-        </p>
-      )}
 
       {isOpen && (
         <ul className="absolute z-50 left-0 right-0 mt-2 bg-white border border-[#e0e0e0] rounded-[18px] shadow-none max-h-60 overflow-y-auto overflow-x-hidden py-1">
@@ -226,7 +213,7 @@ export function SearchBar() {
         onSelect={setEndLocation}
       />
       <p className="text-[12px] text-[#86868b] tracking-[-0.12px] leading-[1.4]">
-        서비스 구역은 강남구 역삼동입니다 (지도의 코랄색 경계선).
+        서비스 구역은 강남구 역삼동입니다 (지도의 노란색 경계선).
       </p>
     </div>
   )

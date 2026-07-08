@@ -25,6 +25,11 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="theme-color" content="#ffffff" />
+        <link
+          rel="stylesheet"
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
         {tmapApiKey && (
           /* jsv2 로더는 document.write로 실제 SDK를 로드하는데, next/script(비동기)
              환경에서는 document.write가 브라우저에 의해 무시되어 지도가 영원히 안 뜸.

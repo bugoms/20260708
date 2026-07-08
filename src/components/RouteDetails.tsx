@@ -108,7 +108,7 @@ export function RouteDetails() {
               </div>
               <p className="text-[10px] text-[#a1a1a6] tracking-[-0.08px] leading-[1.3] pt-1">
                 현재 태양 고도 {route.shadeDetail.sunAltitude}° 기준 · 건물
-                그림자와 공원 데이터로 계산됨
+                그림자와 공원 데이터로 계산됨 · 차도 횡단은 횡단보도 기준
               </p>
             </div>
           )}

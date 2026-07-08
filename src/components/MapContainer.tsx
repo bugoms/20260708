@@ -154,9 +154,9 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       (ring) =>
         new Tmapv2.Polygon({
           paths: ring.map((coord) => new Tmapv2.LatLng(coord[1], coord[0])),
-          strokeColor: '#EF4444', // 코랄 레드 - 구글맵 행정구역 스타일
+          strokeColor: '#EAB308', // 연한 노란색 경계
           strokeWeight: 2,
-          fillColor: '#EF4444',
+          fillColor: '#FDE047',
           fillOpacity: 0.06,
           map: mapRef.current,
         })

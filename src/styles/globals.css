@@ -16,9 +16,10 @@ body {
 }
 
 body {
-  /* Apple 디자인: SF Pro 스택 (Apple 기기에선 실제 SF Pro로 해석됨) */
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui,
-    'Segoe UI', 'Roboto', 'Helvetica Neue', 'Noto Sans KR', sans-serif;
+  /* Pretendard 우선 (한글 최적화), 미로드 시 시스템 폰트 폴백 */
+  font-family: 'Pretendard Variable', Pretendard, -apple-system,
+    BlinkMacSystemFont, system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue',
+    'Noto Sans KR', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #ffffff;

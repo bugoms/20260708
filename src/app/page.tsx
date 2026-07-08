@@ -2,6 +2,7 @@
 
 import { MapContainer } from '@/components/MapContainer'
 import { Sidebar } from '@/components/Sidebar'
+import { AreaAlertModal } from '@/components/AreaAlertModal'
 
 export default function Home() {
   return (
@@ -13,6 +14,9 @@ export default function Home() {
 
       {/* 플로팅 사이드바 */}
       <Sidebar />
+
+      {/* 서비스 구역 이탈 경고창 */}
+      <AreaAlertModal />
     </div>
   )
 }
