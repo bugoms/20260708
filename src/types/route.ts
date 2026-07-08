@@ -16,6 +16,16 @@ export interface RouteResponse {
   distance: number
   duration: number
   shadeScore?: number
+  shadeDetail?: ShadeDetail
+}
+
+export interface ShadeDetail {
+  buildingShadowRatio: number // 건물 그림자 구간 비율(%)
+  parkRatio: number // 공원 구간 비율(%)
+  exposedRatio: number // 햇빛 노출 구간 비율(%)
+  sunAltitude: number // 태양 고도(도)
+  isNight: boolean
+  via?: string // 경유 정보 (예: "역삼개나리공원 경유")
 }
 
 export interface RouteRequest {
@@ -24,6 +34,7 @@ export interface RouteRequest {
   endLat: number
   endLng: number
   routeType: 'optimal' | 'shade'
+  departureTime?: number // epoch ms - 출발 시각 (미지정 시 현재 시각)
 }
 
 export interface SunPosition {

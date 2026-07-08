@@ -73,13 +73,41 @@ export function RouteDetails() {
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {shadeScore >= 75
-                ? '매우 좋은 그늘길입니다'
-                : shadeScore >= 50
-                  ? '적절한 그늘길입니다'
-                  : '햇빛이 있는 구간이 있습니다'}
+              {route.shadeDetail?.isNight
+                ? '지금은 해가 진 시간이에요. 햇빛 걱정 없이 걸으세요!'
+                : shadeScore >= 75
+                  ? '매우 좋은 그늘길입니다'
+                  : shadeScore >= 50
+                    ? '적절한 그늘길입니다'
+                    : '햇빛이 있는 구간이 있습니다'}
             </p>
           </div>
+
+          {route.shadeDetail && !route.shadeDetail.isNight && (
+            <div className="mt-3 space-y-1.5">
+              {route.shadeDetail.via && (
+                <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                  🌳 {route.shadeDetail.via}
+                </p>
+              )}
+              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>🏢 건물 그림자</span>
+                <span>{route.shadeDetail.buildingShadowRatio}%</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>🌳 공원 구간</span>
+                <span>{route.shadeDetail.parkRatio}%</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                <span>☀️ 햇빛 노출</span>
+                <span>{route.shadeDetail.exposedRatio}%</span>
+              </div>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 pt-1">
+                현재 태양 고도 {route.shadeDetail.sunAltitude}° 기준 · 건물
+                그림자와 공원 데이터로 계산됨
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
