@@ -16,7 +16,8 @@ async function callTmapApi(
   endLat: number,
   endLng: number
 ): Promise<RouteResponse> {
-  const apiKey = process.env.TMAP_API_KEY
+  const apiKey =
+    process.env.TMAP_API_KEY || process.env.NEXT_PUBLIC_TMAP_API_KEY
   if (!apiKey) {
     throw new Error('T-Map API key is not configured')
   }
