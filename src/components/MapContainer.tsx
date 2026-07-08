@@ -74,14 +74,27 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       }
     }
 
+    const apiKey = process.env.NEXT_PUBLIC_TMAP_API_KEY
+    if (!apiKey) {
+      console.error('T-Map API key is not configured')
+      setIsLoading(false)
+      return
+    }
+
     const script = document.createElement('script')
-    script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${process.env.NEXT_PUBLIC_TMAP_API_KEY}`
+    script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${apiKey}`
     script.async = true
     script.onload = initializeMap
+    script.onerror = () => {
+      console.error('Failed to load T-Map SDK')
+      setIsLoading(false)
+    }
     document.head.appendChild(script)
 
     return () => {
-      document.head.removeChild(script)
+      if (document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
     }
   }, [onMapReady])
 

@@ -1,16 +1,4 @@
-import type { RouteResponse } from '@/types/route'
-
-const TMAP_API_KEY = process.env.NEXT_PUBLIC_TMAP_API_KEY || ''
-
-export interface TmapRouteRequest {
-  startX: number
-  startY: number
-  endX: number
-  endY: number
-  reqCoordType: 'WGS84GEO'
-  resCoordType: 'WGS84GEO'
-  routeType: number
-}
+import type { RouteResponse, RouteRequest } from '@/types/route'
 
 export async function getTmapRoute(
   startLat: number,
@@ -19,37 +7,31 @@ export async function getTmapRoute(
   endLng: number,
   routeType: 'optimal' | 'shade'
 ): Promise<RouteResponse> {
-  const tmapRouteType = routeType === 'optimal' ? 1 : 32
-
-  const request: TmapRouteRequest = {
-    startX: startLng,
-    startY: startLat,
-    endX: endLng,
-    endY: endLat,
-    reqCoordType: 'WGS84GEO',
-    resCoordType: 'WGS84GEO',
-    routeType: tmapRouteType,
+  const request: RouteRequest = {
+    startLat,
+    startLng,
+    endLat,
+    endLng,
+    routeType,
   }
 
-  const response = await fetch(
-    'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        appKey: TMAP_API_KEY,
-      },
-      body: JSON.stringify(request),
-    }
-  )
+  const endpoint = routeType === 'optimal' ? '/api/route/optimal' : '/api/route/shade'
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
 
   if (!response.ok) {
-    throw new Error(`T-map API error: ${response.statusText}`)
+    const errorData = await response.json() as { error?: string }
+    throw new Error(`경로 조회 실패: ${errorData.error || response.statusText}`)
   }
 
-  const data = await response.json()
-
-  return parseTmapResponse(data, routeType)
+  const data = await response.json() as RouteResponse
+  return data
 }
 
 function parseTmapResponse(

@@ -23,6 +23,8 @@
 
 ### 1. 환경 변수 설정
 
+#### 로컬 개발 환경
+
 ```bash
 cp .env.example .env.local
 ```
@@ -30,10 +32,24 @@ cp .env.example .env.local
 `.env.local` 파일에 T-Map API 키를 설정하세요:
 
 ```
-NEXT_PUBLIC_TMAP_API_KEY=your_api_key_here
+TMAP_API_KEY=your_tmap_api_key_here
+NEXT_PUBLIC_TMAP_API_KEY=your_tmap_api_key_here
 ```
 
 T-Map API 키는 [T-Map 공식 사이트](https://openapi.sk.com/)에서 발급받을 수 있습니다.
+
+#### Vercel 배포 환경
+
+Vercel 대시보드에서 다음 환경변수를 추가하세요:
+
+1. **Settings → Environment Variables**에서 추가
+   - 이름: `TMAP_API_KEY`
+   - 값: `your_tmap_api_key_here`
+   - 적용: **Production, Preview, Development**
+
+2. 이름: `NEXT_PUBLIC_TMAP_API_KEY`
+   - 값: `your_tmap_api_key_here`
+   - 적용: **Production, Preview, Development**
 
 ### 2. 의존성 설치
 
@@ -60,16 +76,30 @@ npm start
 
 T-Map API는 다음 위치에 통합되어 있습니다:
 
-1. **`src/utils/tmapService.ts`** - T-Map API 호출 로직
-   - `getTmapRoute()` 함수에서 보행자 경로 API 호출
-   - 최적의 길 (routeType: 1), 그늘길 (routeType: 32) 구분
+### 서버 (API 라우트)
+1. **`src/app/api/route/optimal/route.ts`** - 최적 경로 API
+   - T-Map REST API 호출 (routeType: 1)
+   - `TMAP_API_KEY` 환경변수 사용
 
-2. **`src/components/MapContainer.tsx`** - 지도 렌더링
-   - T-Map SDK 로드
+2. **`src/app/api/route/shade/route.ts`** - 그늘길 API
+   - T-Map REST API 호출 (routeType: 32)
+   - `TMAP_API_KEY` 환경변수 사용
+
+### 클라이언트
+3. **`src/utils/tmapService.ts`** - T-Map API 클라이언트
+   - 서버의 API 라우트 호출
+   - T-Map REST API는 서버에서만 호출
+
+4. **`src/components/MapContainer.tsx`** - 지도 렌더링
+   - T-Map JavaScript SDK 로드
+   - `NEXT_PUBLIC_TMAP_API_KEY` 환경변수 사용
    - 경로 및 마커 표시
 
-3. **`.env.local`** - API 키 설정
-   - `NEXT_PUBLIC_TMAP_API_KEY` 환경변수에서 키 로드
+### 환경 변수
+5. **`.env.local`** (로컬) / **Vercel Settings** (배포)
+   - `TMAP_API_KEY`: 서버 환경변수 (경로 조회 API)
+   - `NEXT_PUBLIC_TMAP_API_KEY`: 클라이언트 환경변수 (지도 표시)
+   - 같은 API 키 값 사용 가능
 
 ## 📚 T-Map API 활용 방법
 
@@ -152,9 +182,14 @@ src/
 
 ## ⚙️ 환경 변수
 
-| 변수 | 설명 | 필수 |
-|------|------|------|
-| `NEXT_PUBLIC_TMAP_API_KEY` | T-Map API 키 | ✅ |
+| 변수 | 설명 | 필수 | 노출 |
+|------|------|------|------|
+| `TMAP_API_KEY` | T-Map API 키 (서버) | ✅ | 서버만 |
+| `NEXT_PUBLIC_TMAP_API_KEY` | T-Map API 키 (클라이언트) | ✅ | 클라이언트 |
+
+**설정 방법:**
+- **로컬**: `.env.local` 파일에 입력
+- **Vercel**: 프로젝트 Settings → Environment Variables에서 입력
 
 ## 📝 Type Checking
 

@@ -1,5 +1,73 @@
-import { getTmapRoute } from '@/utils/tmapService'
-import type { RouteRequest } from '@/types/route'
+import type { RouteRequest, RouteResponse } from '@/types/route'
+
+interface TmapRouteRequest {
+  startX: number
+  startY: number
+  endX: number
+  endY: number
+  reqCoordType: 'WGS84GEO'
+  resCoordType: 'WGS84GEO'
+  routeType: number
+}
+
+async function callTmapApi(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number
+): Promise<RouteResponse> {
+  const apiKey = process.env.TMAP_API_KEY
+  if (!apiKey) {
+    throw new Error('T-Map API key is not configured')
+  }
+
+  const request: TmapRouteRequest = {
+    startX: startLng,
+    startY: startLat,
+    endX: endLng,
+    endY: endLat,
+    reqCoordType: 'WGS84GEO',
+    resCoordType: 'WGS84GEO',
+    routeType: 32,
+  }
+
+  const response = await fetch(
+    'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        appKey: apiKey,
+      },
+      body: JSON.stringify(request),
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`T-Map API error: ${response.statusText}`)
+  }
+
+  const data = await response.json() as Record<string, unknown>
+  const features = (data.features as Array<{ geometry?: { coordinates?: Array<[number, number]> }; properties?: Record<string, unknown> }> | undefined) || []
+
+  if (features.length === 0) {
+    throw new Error('No route found')
+  }
+
+  const route = features[0]
+  const coordinates = route.geometry?.coordinates || []
+  const properties = route.properties || {}
+
+  const distance = (properties.distance as number) || 0
+  const duration = (properties.duration as number) || 0
+
+  return {
+    path: coordinates,
+    distance,
+    duration,
+    shadeScore: 75,
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +82,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const route = await getTmapRoute(startLat, startLng, endLat, endLng, 'shade')
+    const route = await callTmapApi(startLat, startLng, endLat, endLng)
 
     return Response.json(route, {
       status: 200,
