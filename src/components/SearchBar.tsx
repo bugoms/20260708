@@ -156,9 +156,7 @@ function LocationField({
             <span className="text-green-500" title="위치 확정됨">
               ✓
             </span>
-          ) : (
-            <span className="text-gray-400">🔍</span>
-          )}
+          ) : null}
         </span>
       </div>
 

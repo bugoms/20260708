@@ -3,7 +3,6 @@
 import { useCallback } from 'react'
 import { useRouteStore } from '@/store/routeStore'
 import { useRoute } from '@/hooks/useRoute'
-import type { RouteType } from '@/types/route'
 
 export function RouteOptionButtons() {
   const { selectedRoute, setSelectedRoute, isLoading } = useRouteStore()
@@ -27,12 +26,11 @@ export function RouteOptionButtons() {
         className={`py-3 px-4 rounded-lg font-semibold transition-all ${
           selectedRoute === 'optimal'
             ? 'bg-blue-500 text-white shadow-lg'
-            : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
         aria-label="최적의 길 추천"
         aria-pressed={selectedRoute === 'optimal'}
       >
-        <span className="text-lg mr-2">⚡</span>
         최적의 길
       </button>
 
@@ -42,12 +40,11 @@ export function RouteOptionButtons() {
         className={`py-3 px-4 rounded-lg font-semibold transition-all ${
           selectedRoute === 'shade'
             ? 'bg-green-500 text-white shadow-lg'
-            : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-300'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
         aria-label="햇빛을 피하는 길 추천"
         aria-pressed={selectedRoute === 'shade'}
       >
-        <span className="text-lg mr-2">🌳</span>
         햇빛 피하는 길
       </button>
     </div>

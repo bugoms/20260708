@@ -154,10 +154,10 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       (ring) =>
         new Tmapv2.Polygon({
           paths: ring.map((coord) => new Tmapv2.LatLng(coord[1], coord[0])),
-          strokeColor: '#F87171', // 연한 코랄 - 구글맵 행정구역 스타일
+          strokeColor: '#EF4444', // 코랄 레드 - 구글맵 행정구역 스타일
           strokeWeight: 2,
-          fillColor: '#F87171',
-          fillOpacity: 0.03,
+          fillColor: '#EF4444',
+          fillOpacity: 0.06,
           map: mapRef.current,
         })
     )
