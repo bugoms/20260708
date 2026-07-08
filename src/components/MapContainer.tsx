@@ -9,6 +9,11 @@ interface TmapLatLng {
   lng: () => number
 }
 
+interface TmapSize {
+  width: number
+  height: number
+}
+
 interface TmapMarker {
   setMap: (map: TmapMap | null) => void
 }
@@ -30,6 +35,7 @@ interface TmapMap {
 interface Tmapv2Static {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => TmapMap
   LatLng: new (lat: number, lng: number) => TmapLatLng
+  Size: new (width: number, height: number) => TmapSize
   Marker: new (options: Record<string, unknown>) => TmapMarker
   Polyline: new (options: Record<string, unknown>) => TmapPolyline
   LatLngBounds: new () => TmapBounds
@@ -41,6 +47,10 @@ declare global {
   }
 }
 
+// T-Map 공식 마커 아이콘 (빨강: 출발, 파랑: 도착)
+const START_ICON = 'https://tmapapi.tmapmobility.com/upload/tmap/marker/pin_r_m_s.png'
+const END_ICON = 'https://tmapapi.tmapmobility.com/upload/tmap/marker/pin_b_m_e.png'
+
 export interface MapContainerProps {
   onMapReady?: (map: TmapMap) => void
 }
@@ -49,7 +59,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<TmapMap | null>(null)
   const markersRef = useRef<TmapMarker[]>([])
-  const polylineRef = useRef<TmapPolyline | null>(null)
+  const polylinesRef = useRef<TmapPolyline[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const { startLocation, endLocation, optimalRoute, shadeRoute, selectedRoute } =
@@ -100,7 +110,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     }
   }, [onMapReady])
 
-  // 출발/도착 마커 표시
+  // 출발/도착 마커 표시 + 지도 자동 이동
   useEffect(() => {
     const Tmapv2 = window.Tmapv2
     if (!mapRef.current || !Tmapv2 || isLoading) return
@@ -109,25 +119,48 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     markersRef.current.forEach((marker) => marker.setMap(null))
     markersRef.current = []
 
-    const startMarker = new Tmapv2.Marker({
-      position: new Tmapv2.LatLng(
-        startLocation?.lat ?? 37.4979,
-        startLocation?.lng ?? 127.0276
-      ),
-      map: mapRef.current,
-    })
-    markersRef.current.push(startMarker)
+    if (startLocation) {
+      const startMarker = new Tmapv2.Marker({
+        position: new Tmapv2.LatLng(startLocation.lat, startLocation.lng),
+        icon: START_ICON,
+        iconSize: new Tmapv2.Size(24, 38),
+        title: `출발: ${startLocation.name}`,
+        label: '출발',
+        map: mapRef.current,
+      })
+      markersRef.current.push(startMarker)
+    }
 
     if (endLocation) {
       const endMarker = new Tmapv2.Marker({
         position: new Tmapv2.LatLng(endLocation.lat, endLocation.lng),
+        icon: END_ICON,
+        iconSize: new Tmapv2.Size(24, 38),
+        title: `도착: ${endLocation.name}`,
+        label: '도착',
         map: mapRef.current,
       })
       markersRef.current.push(endMarker)
     }
+
+    // 지도 이동: 둘 다 선택되면 두 지점이 모두 보이게, 하나면 그 지점으로 이동
+    if (startLocation && endLocation) {
+      const bounds = new Tmapv2.LatLngBounds()
+      bounds.extend(new Tmapv2.LatLng(startLocation.lat, startLocation.lng))
+      bounds.extend(new Tmapv2.LatLng(endLocation.lat, endLocation.lng))
+      mapRef.current.fitBounds(bounds)
+    } else if (startLocation) {
+      mapRef.current.setCenter(
+        new Tmapv2.LatLng(startLocation.lat, startLocation.lng)
+      )
+    } else if (endLocation) {
+      mapRef.current.setCenter(
+        new Tmapv2.LatLng(endLocation.lat, endLocation.lng)
+      )
+    }
   }, [startLocation, endLocation, isLoading])
 
-  // 경로선 표시
+  // 경로선 표시 (흰색 테두리 + 본선 이중 구조로 가시성 확보)
   useEffect(() => {
     const Tmapv2 = window.Tmapv2
     if (!mapRef.current || !Tmapv2 || isLoading) return
@@ -136,10 +169,8 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       selectedRoute === 'optimal' ? optimalRoute : shadeRoute
 
     // 기존 경로선 제거
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null)
-      polylineRef.current = null
-    }
+    polylinesRef.current.forEach((line) => line.setMap(null))
+    polylinesRef.current = []
 
     if (!route || route.path.length === 0) return
 
@@ -147,14 +178,25 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       (coord) => new Tmapv2.LatLng(coord[1], coord[0])
     )
 
-    const polylineColor = selectedRoute === 'optimal' ? '#3B82F6' : '#10B981'
+    const mainColor = selectedRoute === 'optimal' ? '#1D4ED8' : '#059669'
 
-    polylineRef.current = new Tmapv2.Polyline({
+    // 아래층: 흰색 굵은 테두리선 (배경 지도와 분리)
+    const casing = new Tmapv2.Polyline({
       path: latLngPath,
-      strokeColor: polylineColor,
-      strokeWeight: 6,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 12,
       map: mapRef.current,
     })
+
+    // 위층: 본선
+    const mainLine = new Tmapv2.Polyline({
+      path: latLngPath,
+      strokeColor: mainColor,
+      strokeWeight: 7,
+      map: mapRef.current,
+    })
+
+    polylinesRef.current = [casing, mainLine]
 
     // 경로 전체가 보이도록 화면 맞춤
     const bounds = new Tmapv2.LatLngBounds()

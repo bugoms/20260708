@@ -4,6 +4,13 @@ export interface Location {
   name: string
 }
 
+export interface PoiResult {
+  name: string
+  lat: number
+  lng: number
+  address: string
+}
+
 export interface RouteResponse {
   path: Array<[number, number]>
   distance: number
