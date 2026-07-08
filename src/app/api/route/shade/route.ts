@@ -1,27 +1,31 @@
-// 햇빛 회피(그늘) 경로 API
+// 햇빛 회피(그늘) 경로 API — 하이브리드 방식
 //
-// 동작 원리:
-// 1. T-Map 보행자 API로 후보 경로 여러 개 생성
-//    - 기본 후보: 추천(0) / 최단(10) / 최단+계단제외(30)
-//    - 공원 경유 후보: 출발-도착 사이 우회가 크지 않은 공원을 경유지(passList)로 강제
-//      (T-Map 보행자 네트워크는 골목길/공원 산책로/횡단보도를 포함하므로
-//       경유지를 넣으면 경로선이 자연스럽게 그 구간을 지나간다)
-// 2. OSM(Overpass)에서 일대 건물(높이 포함)/공원 데이터 로드
-// 3. 각 후보를 "현재 시각 태양 위치 + 건물 그림자 + 공원" 기준으로 그늘 점수화
-// 4. 과도한 우회(최단 대비 1.8배 초과) 제외 후 최고 점수 경로 선택
+// 1순위: OSM 보행 네트워크(골목/공원 산책로 포함) 위에서 그늘 가중 A* 직접 탐색
+//   - 엣지 비용 = 길이 x (1 - 그늘가중 x 그늘계수) x 최적길회피 페널티
+//   - T-Map엔 없는 공원 내부 산책로/골목을 실제로 통과할 수 있음
+//   - 최적길(T-Map 추천)과 겹치는 구간에 페널티 -> 두 경로가 항상 달라짐
+// 2순위(폴백): T-Map 후보 경로(추천/최단/계단제외/공원경유) 그늘 점수 재랭킹
+//
+// 그늘 판정 근거: 현재 시각 태양 고도/방위각 + OSM 건물(높이) 그림자 + 공원
 
 import type { RouteRequest, RouteResponse } from '@/types/route'
-import { fetchAreaData, type AreaData, type Park } from '@/utils/overpass'
-import { scoreRoute, type ShadeBreakdown } from '@/utils/shadeScoring'
-import { distanceMeters, bboxWithMargin, type Point } from '@/utils/geo'
+import {
+  fetchWalkData,
+  type AreaData,
+  type WalkData,
+  type Park,
+} from '@/utils/overpass'
+import { scoreRoute } from '@/utils/shadeScoring'
+import { routeWithShade, pathSimilarity } from '@/utils/osmRouter'
+import {
+  distanceMeters,
+  bboxWithMargin,
+  samplePath,
+  pointInPolygon,
+  type Point,
+} from '@/utils/geo'
 
-export const maxDuration = 30 // Overpass + T-Map 다중 호출 대비
-
-interface Candidate {
-  label: string
-  via?: string
-  route: RawRoute
-}
+export const maxDuration = 30
 
 interface RawRoute {
   path: Array<[number, number]>
@@ -29,8 +33,9 @@ interface RawRoute {
   duration: number
 }
 
-const MAX_DETOUR_RATIO = 1.8 // 최단 경로 대비 허용 우회 배율
-const MAX_PARK_DETOUR = 1.6 // 공원 경유 후보로 삼을 최대 우회 배율(직선거리 기준)
+const MAX_DETOUR_RATIO = 2.2 // 최적길 대비 그늘길 최대 허용 배율
+const SIMILARITY_LIMIT = 0.75 // 최적길과 이 이상 겹치면 회피 강화 재탐색
+const MAX_PARK_DETOUR = 1.6
 
 async function callTmap(
   apiKey: string,
@@ -58,17 +63,12 @@ async function callTmap(
     'https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json',
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        appKey: apiKey,
-      },
+      headers: { 'Content-Type': 'application/json', appKey: apiKey },
       body: JSON.stringify(body),
     }
   )
 
-  if (!response.ok) {
-    throw new Error(`T-Map API error: ${response.statusText}`)
-  }
+  if (!response.ok) throw new Error(`T-Map API error: ${response.statusText}`)
 
   const data = (await response.json()) as Record<string, unknown>
   const features =
@@ -76,15 +76,9 @@ async function callTmap(
       geometry?: { type?: string; coordinates?: unknown }
       properties?: Record<string, unknown>
     }>) || []
-
-  if (features.length === 0) {
-    throw new Error('No route found')
-  }
+  if (features.length === 0) throw new Error('No route found')
 
   const summary = features[0].properties || {}
-  const distance = (summary.totalDistance as number) || 0
-  const duration = (summary.totalTime as number) || 0
-
   const path: Array<[number, number]> = []
   for (const feature of features) {
     if (feature.geometry?.type === 'LineString') {
@@ -92,24 +86,91 @@ async function callTmap(
     }
   }
 
-  return { path, distance, duration }
+  return {
+    path,
+    distance: (summary.totalDistance as number) || 0,
+    duration: (summary.totalTime as number) || 0,
+  }
 }
 
-/** 출발-도착 코리도 근처에서 우회가 크지 않은 공원 선정 (최대 2개) */
-function pickNearbyParks(start: Point, end: Point, parks: Park[]): Park[] {
-  const directDist = distanceMeters(start, end)
-  if (directDist < 200) return [] // 너무 짧은 경로는 경유 무의미
+/** 경로가 통과하는 공원 이름 목록 */
+function parksOnPath(path: Array<[number, number]>, parks: Park[]): string[] {
+  const samples = samplePath(path, 25)
+  const names = new Set<string>()
+  for (const park of parks) {
+    if (samples.some((p) => pointInPolygon(p, park.polygon))) {
+      names.add(park.name)
+    }
+  }
+  return [...names]
+}
 
-  return parks
+/** 폴백: T-Map 후보 경로들을 그늘 점수로 재랭킹 */
+async function fallbackCandidateRoute(
+  apiKey: string,
+  start: Point,
+  end: Point,
+  area: AreaData,
+  optimalPath: Array<[number, number]> | null,
+  now: Date
+): Promise<{ route: RawRoute; via?: string } | null> {
+  const candidates: Array<{ route: RawRoute; via?: string }> = []
+
+  const baseOptions = [10, 30] // 최단, 계단제외 (추천 0은 최적길과 동일하므로 제외)
+  const nearbyParks = area.parks
     .map((park) => {
-      const viaDist =
+      const direct = distanceMeters(start, end)
+      const via =
         distanceMeters(start, park.center) + distanceMeters(park.center, end)
-      return { park, detour: viaDist / directDist }
+      return { park, detour: direct > 0 ? via / direct : Infinity }
     })
     .filter((p) => p.detour <= MAX_PARK_DETOUR)
     .sort((a, b) => a.detour - b.detour)
     .slice(0, 2)
-    .map((p) => p.park)
+
+  const results = await Promise.allSettled([
+    ...baseOptions.map((opt) =>
+      callTmap(apiKey, start.lat, start.lng, end.lat, end.lng, opt)
+    ),
+    ...nearbyParks.map((p) =>
+      callTmap(
+        apiKey,
+        start.lat,
+        start.lng,
+        end.lat,
+        end.lng,
+        0,
+        `${p.park.center.lng},${p.park.center.lat}`
+      )
+    ),
+  ])
+
+  results.forEach((result, i) => {
+    if (result.status !== 'fulfilled') return
+    const via =
+      i >= baseOptions.length
+        ? `${nearbyParks[i - baseOptions.length].park.name} 경유`
+        : undefined
+    candidates.push({ route: result.value, via })
+  })
+
+  if (candidates.length === 0) return null
+
+  const scored = candidates.map((c) => ({
+    ...c,
+    breakdown: scoreRoute(c.route.path, area, now),
+    similarity: optimalPath ? pathSimilarity(c.route.path, optimalPath) : 0,
+  }))
+
+  // 최적길과 다른 경로 우선, 그중 그늘 점수 최고
+  scored.sort((a, b) => {
+    const aDiff = a.similarity < 0.9 ? 0 : 1
+    const bDiff = b.similarity < 0.9 ? 0 : 1
+    if (aDiff !== bDiff) return aDiff - bDiff
+    return b.breakdown.score - a.breakdown.score
+  })
+
+  return scored[0]
 }
 
 export async function POST(request: Request) {
@@ -135,98 +196,92 @@ export async function POST(request: Request) {
 
     const start: Point = { lat: startLat, lng: startLng }
     const end: Point = { lat: endLat, lng: endLng }
+    const now = body.departureTime ? new Date(body.departureTime) : new Date()
 
-    // OSM 데이터와 기본 후보 경로를 병렬로 로드
+    // 최적길(T-Map 추천)과 OSM 보행 데이터를 병렬 로드
     const bbox = bboxWithMargin([start, end], 400)
-    const [areaResult, ...baseResults] = await Promise.allSettled([
-      fetchAreaData(bbox),
+    const [optimalResult, walkResult] = await Promise.allSettled([
       callTmap(apiKey, startLat, startLng, endLat, endLng, 0),
-      callTmap(apiKey, startLat, startLng, endLat, endLng, 10),
-      callTmap(apiKey, startLat, startLng, endLat, endLng, 30),
+      fetchWalkData(bbox),
     ])
 
-    const candidates: Candidate[] = []
-    const baseLabels = ['추천 경로', '최단 경로', '계단 제외 경로']
-    baseResults.forEach((result, i) => {
-      if (result.status === 'fulfilled') {
-        candidates.push({ label: baseLabels[i], route: result.value })
+    const optimal =
+      optimalResult.status === 'fulfilled' ? optimalResult.value : null
+
+    // ---------- 1순위: OSM 그늘 가중 라우팅 ----------
+    if (walkResult.status === 'fulfilled' && optimal) {
+      const walk: WalkData = walkResult.value
+
+      let osmRoute = routeWithShade(walk, start, end, now, optimal.path, 1.4)
+
+      // 최적길과 너무 비슷하면 회피 강화 후 재탐색
+      if (
+        osmRoute &&
+        pathSimilarity(osmRoute.path, optimal.path) > SIMILARITY_LIMIT
+      ) {
+        const retried = routeWithShade(walk, start, end, now, optimal.path, 2.5)
+        if (retried) osmRoute = retried
       }
-    })
 
-    if (candidates.length === 0) {
-      throw new Error('경로를 찾을 수 없습니다')
-    }
+      // 우회가 과하지 않은 경우에만 채택
+      if (osmRoute && osmRoute.distance <= optimal.distance * MAX_DETOUR_RATIO) {
+        const breakdown = scoreRoute(osmRoute.path, walk, now)
+        const crossedParks = parksOnPath(osmRoute.path, walk.parks)
+        const namedParks = crossedParks.filter((n) => n !== '공원')
+        const viaParts = ['그늘 우선 탐색']
+        if (namedParks.length > 0) {
+          viaParts.push(`${namedParks.join(', ')} 통과`)
+        } else if (crossedParks.length > 0) {
+          viaParts.push('공원 통과')
+        }
 
-    // OSM 데이터 로드 실패 시: 그늘 계산 불가 -> 추천 경로 + 점수 없음으로 폴백
-    if (areaResult.status === 'rejected') {
-      const fallback = candidates[0].route
-      const response: RouteResponse = {
-        ...fallback,
-        shadeDetail: {
-          buildingShadowRatio: 0,
-          parkRatio: 0,
-          exposedRatio: 0,
-          sunAltitude: 0,
-          isNight: false,
-          via: '그늘 데이터 일시 사용 불가 (기본 경로 표시)',
-        },
-      }
-      return Response.json(response, { status: 200 })
-    }
-
-    const area: AreaData = areaResult.value
-
-    // 공원 경유 후보 추가
-    const nearbyParks = pickNearbyParks(start, end, area.parks)
-    const parkResults = await Promise.allSettled(
-      nearbyParks.map((park) =>
-        callTmap(
-          apiKey,
-          startLat,
-          startLng,
-          endLat,
-          endLng,
-          0,
-          `${park.center.lng},${park.center.lat}`
-        )
-      )
-    )
-    parkResults.forEach((result, i) => {
-      if (result.status === 'fulfilled') {
-        candidates.push({
-          label: `${nearbyParks[i].name} 경유`,
-          via: `${nearbyParks[i].name} 경유`,
-          route: result.value,
+        const response: RouteResponse = {
+          path: osmRoute.path,
+          distance: osmRoute.distance,
+          duration: osmRoute.duration,
+          shadeScore: breakdown.score,
+          shadeDetail: {
+            buildingShadowRatio: breakdown.buildingShadowRatio,
+            parkRatio: breakdown.parkRatio,
+            exposedRatio: breakdown.exposedRatio,
+            sunAltitude: breakdown.sunAltitude,
+            isNight: breakdown.isNight,
+            via: viaParts.join(' · '),
+          },
+        }
+        return Response.json(response, {
+          status: 200,
+          headers: {
+            'Cache-Control': 'public, max-age=300',
+            'Content-Type': 'application/json',
+          },
         })
       }
-    })
+    }
 
-    // 모든 후보 그늘 점수화 (departureTime 지정 시 해당 시각 기준)
-    const now = body.departureTime ? new Date(body.departureTime) : new Date()
-    const scored = candidates.map((candidate) => ({
-      ...candidate,
-      breakdown: scoreRoute(candidate.route.path, area, now),
-    }))
+    // ---------- 2순위 폴백: T-Map 후보 재랭킹 ----------
+    const area: AreaData =
+      walkResult.status === 'fulfilled'
+        ? walkResult.value
+        : { buildings: [], parks: [] }
 
-    // 과도한 우회 제외 (전체 후보 중 최단 거리 기준)
-    const minDistance = Math.min(...scored.map((c) => c.route.distance))
-    const eligible = scored.filter(
-      (c) => c.route.distance <= minDistance * MAX_DETOUR_RATIO
+    const fallback = await fallbackCandidateRoute(
+      apiKey,
+      start,
+      end,
+      area,
+      optimal?.path ?? null,
+      now
     )
 
-    // 그늘 점수 최고 경로 선택 (동점이면 짧은 경로)
-    const best = eligible.reduce((a, b) => {
-      if (b.breakdown.score > a.breakdown.score) return b
-      if (b.breakdown.score === a.breakdown.score &&
-          b.route.distance < a.route.distance) return b
-      return a
-    })
+    const chosen = fallback?.route ?? optimal
+    if (!chosen) throw new Error('경로를 찾을 수 없습니다')
 
-    const breakdown: ShadeBreakdown = best.breakdown
+    const breakdown = scoreRoute(chosen.path, area, now)
     const response: RouteResponse = {
-      path: best.route.path,
-      distance: best.route.distance,
-      duration: best.route.duration,
+      path: chosen.path,
+      distance: chosen.distance,
+      duration: chosen.duration,
       shadeScore: breakdown.score,
       shadeDetail: {
         buildingShadowRatio: breakdown.buildingShadowRatio,
@@ -234,14 +289,12 @@ export async function POST(request: Request) {
         exposedRatio: breakdown.exposedRatio,
         sunAltitude: breakdown.sunAltitude,
         isNight: breakdown.isNight,
-        via: best.via,
+        via: fallback?.via,
       },
     }
-
     return Response.json(response, {
       status: 200,
       headers: {
-        // 태양 위치가 시간에 따라 변하므로 짧게 캐시
         'Cache-Control': 'public, max-age=300',
         'Content-Type': 'application/json',
       },

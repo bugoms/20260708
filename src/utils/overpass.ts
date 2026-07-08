@@ -20,8 +20,23 @@ export interface AreaData {
   parks: Park[]
 }
 
+/** 보행 네트워크 way (그래프 구축용 - 노드 id 참조 포함) */
+export interface WalkWay {
+  nodeIds: number[]
+  highway: string
+}
+
+export interface WalkData extends AreaData {
+  ways: WalkWay[]
+  nodes: Map<number, Point> // OSM 노드 id -> 좌표
+}
+
 interface OverpassElement {
   type: string
+  id: number
+  lat?: number
+  lon?: number
+  nodes?: number[]
   tags?: Record<string, string>
   geometry?: Array<{ lat: number; lon: number }>
 }
@@ -50,6 +65,62 @@ function parseHeight(tags: Record<string, string>): number {
   return DEFAULT_BUILDING_HEIGHT
 }
 
+async function runOverpassQuery(
+  query: string
+): Promise<{ elements: OverpassElement[] }> {
+  let lastError: unknown = null
+  for (const mirror of MIRRORS) {
+    try {
+      const response = await fetch(mirror, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'shade-route-webapp/1.0',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`)
+      return (await response.json()) as { elements: OverpassElement[] }
+    } catch (error) {
+      lastError = error
+      // 다음 미러로 폴백
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('All Overpass mirrors failed')
+}
+
+function parseBuildingsAndParks(elements: OverpassElement[]): AreaData {
+  const buildings: Building[] = []
+  const parks: Park[] = []
+
+  for (const el of elements) {
+    if (!el.geometry || el.geometry.length < 3 || !el.tags) continue
+    const polygon: Point[] = el.geometry.map((g) => ({
+      lat: g.lat,
+      lng: g.lon,
+    }))
+
+    if (el.tags['building']) {
+      buildings.push({
+        footprint: polygon,
+        center: polygonCenter(polygon),
+        height: parseHeight(el.tags),
+      })
+    } else if (el.tags['leisure'] === 'park') {
+      parks.push({
+        name: el.tags['name'] || '공원',
+        polygon,
+        center: polygonCenter(polygon),
+      })
+    }
+  }
+
+  return { buildings, parks }
+}
+
 export async function fetchAreaData(bbox: {
   south: number
   west: number
@@ -75,56 +146,69 @@ export async function fetchAreaData(bbox: {
 out tags geom;
 `
 
-  let lastError: unknown = null
-  for (const mirror of MIRRORS) {
-    try {
-      const response = await fetch(mirror, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'shade-route-webapp/1.0',
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(6000),
-      })
-      if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`)
+  const json = await runOverpassQuery(query)
+  const data = parseBuildingsAndParks(json.elements)
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
+  return data
+}
 
-      const json = (await response.json()) as { elements: OverpassElement[] }
-      const buildings: Building[] = []
-      const parks: Park[] = []
+// 보행 가능 도로 유형 (사유지/차량전용 제외)
+const WALKABLE_HIGHWAY =
+  '^(footway|path|pedestrian|steps|living_street|residential|service|unclassified|tertiary|secondary|primary)$'
 
-      for (const el of json.elements) {
-        if (!el.geometry || el.geometry.length < 3 || !el.tags) continue
-        const polygon: Point[] = el.geometry.map((g) => ({
-          lat: g.lat,
-          lng: g.lon,
-        }))
+const walkCache = new Map<string, { data: WalkData; expires: number }>()
 
-        if (el.tags['building']) {
-          buildings.push({
-            footprint: polygon,
-            center: polygonCenter(polygon),
-            height: parseHeight(el.tags),
-          })
-        } else if (el.tags['leisure'] === 'park') {
-          parks.push({
-            name: el.tags['name'] || '공원',
-            polygon,
-            center: polygonCenter(polygon),
-          })
-        }
-      }
+/**
+ * 보행 네트워크(그래프용 way + 노드 좌표) + 건물/공원을 한 번의 쿼리로 로드.
+ * way는 노드 id 배열을 포함하므로 교차점에서 그래프가 연결된다.
+ */
+export async function fetchWalkData(bbox: {
+  south: number
+  west: number
+  north: number
+  east: number
+}): Promise<WalkData> {
+  const key = [bbox.south, bbox.west, bbox.north, bbox.east]
+    .map((v) => v.toFixed(3))
+    .join(',')
 
-      const data: AreaData = { buildings, parks }
-      cache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
-      return data
-    } catch (error) {
-      lastError = error
-      // 다음 미러로 폴백
+  const cached = walkCache.get(key)
+  if (cached && cached.expires > Date.now()) {
+    return cached.data
+  }
+
+  const bboxStr = `${bbox.south},${bbox.west},${bbox.north},${bbox.east}`
+  const query = `
+[out:json][timeout:12];
+way["highway"~"${WALKABLE_HIGHWAY}"]["foot"!="no"]["access"!="private"](${bboxStr})->.roads;
+.roads out body;
+node(w.roads);
+out skel qt;
+(
+  way["building"](${bboxStr});
+  way["leisure"="park"](${bboxStr});
+);
+out tags geom;
+`
+
+  const json = await runOverpassQuery(query)
+
+  const ways: WalkWay[] = []
+  const nodes = new Map<number, Point>()
+  const areaElements: OverpassElement[] = []
+
+  for (const el of json.elements) {
+    if (el.type === 'node' && el.lat !== undefined && el.lon !== undefined) {
+      nodes.set(el.id, { lat: el.lat, lng: el.lon })
+    } else if (el.type === 'way' && el.tags?.['highway'] && el.nodes) {
+      ways.push({ nodeIds: el.nodes, highway: el.tags['highway'] })
+    } else if (el.type === 'way' && el.geometry) {
+      areaElements.push(el)
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error('All Overpass mirrors failed')
+  const area = parseBuildingsAndParks(areaElements)
+  const data: WalkData = { ...area, ways, nodes }
+  walkCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
+  return data
 }
