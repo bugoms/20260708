@@ -119,13 +119,13 @@ docs: plan.md에서 모든 Phase 완료로 표시
 - 실제 완성 시간: 약 4시간
 ```
 
-### Commit 3: 환경변수 단일화 (최신)
+### Commit 3: 환경변수 구조 개선 (최신)
 ```
-refactor: 환경변수 단순화 - TMAP_API_KEY 하나만 사용
-- T-Map SDK 로드를 /api/config 라우트를 통해 처리
-- 클라이언트에서 fetch로 API 키를 동적으로 가져옴
-- NEXT_PUBLIC_TMAP_API_KEY 제거 (중복 제거)
-- 보안성 유지: API 키는 서버에서만 관리
+refactor: T-Map SDK 직접 로드 방식으로 변경
+- MapContainer에서 process.env.NEXT_PUBLIC_TMAP_API_KEY 직접 사용
+- T-Map SDK를 브라우저에서 직접 로드
+- /api/config 라우트 제거 (불필요)
+- NEXT_PUBLIC_ prefix 추가로 브라우저 접근 가능하게 변경
 ```
 
 ---
@@ -134,10 +134,11 @@ refactor: 환경변수 단순화 - TMAP_API_KEY 하나만 사용
 
 ### 🔴 **필수 (Vercel 배포 전에 반드시)**
 
-1. **Vercel 환경변수 설정**
+1. **Vercel 환경변수 설정** ⭐ 필수
    - [ ] Vercel 대시보드에서 프로젝트 연결
-   - [ ] `TMAP_API_KEY` 설정만 필요 (서버에서 클라이언트로 제공)
+   - [ ] `NEXT_PUBLIC_TMAP_API_KEY` 설정 (T-Map SDK 로드용)
    - [ ] 모든 환경(Production, Preview, Development) 적용
+   - [ ] **Redeploy 필수** (환경변수 적용 후 꼭 재배포)
    - 📍 위치: Vercel → Settings → Environment Variables
 
 2. **배포 및 테스트**
@@ -287,19 +288,23 @@ git push origin main
 
 ### 로컬 (.env.local)
 ```
-TMAP_API_KEY=your_api_key_here
+NEXT_PUBLIC_TMAP_API_KEY=your_api_key_here
 ```
 
 ### Vercel (필수 설정)
 ```
 Settings → Environment Variables
 
-TMAP_API_KEY (서버)
-- 값: T-Map API 키
-- 환경: Production, Preview, Development
+NEXT_PUBLIC_TMAP_API_KEY (T-Map SDK 로드용)
+- 값: T-Map API 키 (OpenAPI.sk.com에서 발급)
+- 환경: Production, Preview, Development ✅
+- 저장 후 반드시 "Redeploy" 클릭 필수! ⭐
 ```
 
-**⚠️ 중요**: Vercel에 배포하려면 반드시 TMAP_API_KEY만 설정하면 됩니다!
+**⚠️ 중요**: 
+1. NEXT_PUBLIC_ prefix 반드시 포함
+2. Vercel에서 환경변수 설정 후 "Redeploy" 꼭 실행
+3. 없으면 지도가 로드되지 않음
 
 ---
 

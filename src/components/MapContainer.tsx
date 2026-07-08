@@ -74,52 +74,49 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       }
     }
 
-    const loadTmapSdk = async () => {
-      try {
-        console.log('Fetching T-Map API config...')
-        const response = await fetch('/api/config')
+    const loadTmapSdk = () => {
+      const appKey = process.env.NEXT_PUBLIC_TMAP_API_KEY
 
-        if (!response.ok) {
-          const errorData = await response.text()
-          throw new Error(
-            `Failed to fetch T-Map API key: ${response.status} ${errorData}`
-          )
-        }
+      if (!appKey) {
+        console.error(
+          'TMAP_API_KEY가 없습니다. 환경변수 NEXT_PUBLIC_TMAP_API_KEY를 설정하세요.'
+        )
+        setIsLoading(false)
+        return
+      }
 
-        const data = await response.json()
-        const { tmapApiKey } = data
+      console.log('T-Map SDK 로딩 중...')
 
-        if (!tmapApiKey) {
-          throw new Error(
-            'T-Map API key not found in response. Ensure TMAP_API_KEY is set in environment variables.'
-          )
-        }
+      const existingScript = document.getElementById('tmap-script')
+      if (existingScript) {
+        initializeMap()
+        return
+      }
 
-        console.log('T-Map API key loaded successfully')
-        const script = document.createElement('script')
-        script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${tmapApiKey}`
-        script.async = false
-        script.onload = initializeMap
-        script.onerror = () => {
-          console.error(
-            'Failed to load T-Map SDK from CDN. Check your API key or network connection.'
-          )
-          setIsLoading(false)
-        }
-        document.head.appendChild(script)
-
-        return () => {
-          if (document.head.contains(script)) {
-            document.head.removeChild(script)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading T-Map SDK:', error)
+      const script = document.createElement('script')
+      script.id = 'tmap-script'
+      script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${appKey}`
+      script.async = true
+      script.onload = () => {
+        console.log('T-Map SDK 로드 완료')
+        initializeMap()
+      }
+      script.onerror = () => {
+        console.error('T-Map SDK 로드 실패. 앱 키를 확인하세요.')
         setIsLoading(false)
       }
+
+      document.head.appendChild(script)
     }
 
     loadTmapSdk()
+
+    return () => {
+      const script = document.getElementById('tmap-script')
+      if (script && document.head.contains(script)) {
+        document.head.removeChild(script)
+      }
+    }
   }, [onMapReady])
 
   useEffect(() => {
