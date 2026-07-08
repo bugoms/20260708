@@ -28,6 +28,7 @@ export function RouteDetails() {
   const distanceKm = (route.distance / 1000).toFixed(1)
   const durationMin = Math.round(route.duration / 60)
   const shadeScore = route.shadeScore || 0
+  const hasBoth = optimalRoute !== null && shadeRoute !== null
 
   return (
     <div className="bg-white border border-[#e0e0e0] rounded-[18px] p-5 space-y-4">
@@ -54,6 +55,66 @@ export function RouteDetails() {
           </div>
         </div>
       </div>
+
+      {hasBoth && optimalRoute && shadeRoute && (
+        <div className="border-t border-[#f0f0f0] pt-4">
+          <h3 className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] mb-3">
+            경로 비교
+          </h3>
+          <table className="w-full text-[13px] tracking-[-0.2px]">
+            <thead>
+              <tr className="text-[#86868b]">
+                <th className="text-left font-normal pb-1.5"></th>
+                <th
+                  className={`text-right font-normal pb-1.5 ${
+                    selectedRoute === 'optimal'
+                      ? 'text-[#0066cc] font-semibold'
+                      : ''
+                  }`}
+                >
+                  최적의 길
+                </th>
+                <th
+                  className={`text-right font-normal pb-1.5 ${
+                    selectedRoute === 'shade'
+                      ? 'text-[#0066cc] font-semibold'
+                      : ''
+                  }`}
+                >
+                  햇빛 회피
+                </th>
+              </tr>
+            </thead>
+            <tbody className="text-[#1d1d1f]">
+              <tr>
+                <td className="text-[#86868b] py-0.5">거리</td>
+                <td className="text-right py-0.5">
+                  {(optimalRoute.distance / 1000).toFixed(1)} km
+                </td>
+                <td className="text-right py-0.5">
+                  {(shadeRoute.distance / 1000).toFixed(1)} km
+                </td>
+              </tr>
+              <tr>
+                <td className="text-[#86868b] py-0.5">시간</td>
+                <td className="text-right py-0.5">
+                  {Math.round(optimalRoute.duration / 60)}분
+                </td>
+                <td className="text-right py-0.5">
+                  {Math.round(shadeRoute.duration / 60)}분
+                </td>
+              </tr>
+              <tr>
+                <td className="text-[#86868b] py-0.5">그늘</td>
+                <td className="text-right py-0.5 text-[#86868b]">-</td>
+                <td className="text-right py-0.5">
+                  {shadeRoute.shadeScore ?? 0}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {selectedRoute === 'shade' && (
         <div className="border-t border-[#f0f0f0] pt-4">

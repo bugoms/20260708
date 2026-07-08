@@ -27,18 +27,39 @@ export function useRoute() {
       setError(null)
 
       try {
-        const route = await getTmapRoute(
-          startLocation.lat,
-          startLocation.lng,
-          endLocation.lat,
-          endLocation.lng,
-          routeType
-        )
+        // 비교 표시를 위해 두 경로를 항상 병렬로 조회
+        const [optimalResult, shadeResult] = await Promise.allSettled([
+          getTmapRoute(
+            startLocation.lat,
+            startLocation.lng,
+            endLocation.lat,
+            endLocation.lng,
+            'optimal'
+          ),
+          getTmapRoute(
+            startLocation.lat,
+            startLocation.lng,
+            endLocation.lat,
+            endLocation.lng,
+            'shade'
+          ),
+        ])
 
-        if (routeType === 'optimal') {
-          setOptimalRoute(route)
-        } else {
-          setShadeRoute(route)
+        if (optimalResult.status === 'fulfilled') {
+          setOptimalRoute(optimalResult.value)
+        }
+        if (shadeResult.status === 'fulfilled') {
+          setShadeRoute(shadeResult.value)
+        }
+
+        // 사용자가 선택한 경로가 실패했으면 에러 표시
+        const selected =
+          routeType === 'optimal' ? optimalResult : shadeResult
+        if (selected.status === 'rejected') {
+          const reason = selected.reason
+          throw reason instanceof Error
+            ? reason
+            : new Error('경로를 불러오는 중 오류가 발생했습니다.')
         }
 
         // 검색 성공 시 최근 기록에 저장

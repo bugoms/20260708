@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouteStore } from '@/store/routeStore'
+import { pointInPolygon } from '@/utils/geo'
 import type { RouteResponse } from '@/types/route'
 
 interface TmapLatLng {
@@ -16,6 +17,8 @@ interface TmapSize {
 
 interface TmapMarker {
   setMap: (map: TmapMap | null) => void
+  getPosition: () => TmapLatLng
+  setPosition: (latlng: TmapLatLng) => void
 }
 
 interface TmapPolyline {
@@ -44,6 +47,13 @@ interface Tmapv2Static {
   Polyline: new (options: Record<string, unknown>) => TmapPolyline
   Polygon: new (options: Record<string, unknown>) => TmapPolygon
   LatLngBounds: new () => TmapBounds
+  event: {
+    addListener: (
+      target: unknown,
+      eventType: string,
+      handler: () => void
+    ) => void
+  }
 }
 
 declare global {
@@ -76,7 +86,23 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     selectedRoute,
     boundary,
     setBoundary,
+    setStartLocation,
+    setEndLocation,
+    setOptimalRoute,
+    setShadeRoute,
+    setAreaAlert,
   } = useRouteStore()
+
+  /** 좌표가 서비스 구역 안인지 (경계 미로드 시 통과) */
+  const isInArea = (lat: number, lng: number): boolean => {
+    if (!boundary || boundary.length === 0) return true
+    return boundary.some((ring) =>
+      pointInPolygon(
+        { lat, lng },
+        ring.map((c) => ({ lat: c[1], lng: c[0] }))
+      )
+    )
+  }
 
   // 지도 초기화 - SDK(window.Tmapv2)가 로드될 때까지 기다렸다가 생성
   useEffect(() => {
@@ -172,15 +198,51 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     markersRef.current.forEach((marker) => marker.setMap(null))
     markersRef.current = []
 
+    // 마커 드래그 종료 처리: 경계 검증 후 위치 갱신 + 기존 경로 무효화
+    const handleDragEnd = (
+      marker: TmapMarker,
+      kind: 'start' | 'end',
+      original: { lat: number; lng: number }
+    ) => {
+      const pos = marker.getPosition()
+      const lat = pos.lat()
+      const lng = pos.lng()
+
+      if (!isInArea(lat, lng)) {
+        setAreaAlert(
+          '이동한 위치가 역삼동을 벗어났어요. 마커를 원래 위치로 되돌립니다.'
+        )
+        marker.setPosition(new Tmapv2.LatLng(original.lat, original.lng))
+        return
+      }
+
+      // 위치가 바뀌었으므로 기존 경로는 무효
+      setOptimalRoute(null)
+      setShadeRoute(null)
+
+      if (kind === 'start') {
+        setStartLocation({ name: '지도에서 지정한 출발지', lat, lng })
+      } else {
+        setEndLocation({ name: '지도에서 지정한 도착지', lat, lng })
+      }
+    }
+
     if (startLocation) {
       const startMarker = new Tmapv2.Marker({
         position: new Tmapv2.LatLng(startLocation.lat, startLocation.lng),
         icon: START_ICON,
         iconSize: new Tmapv2.Size(24, 38),
-        title: `출발: ${startLocation.name}`,
+        title: `출발: ${startLocation.name} (드래그로 이동 가능)`,
         label: '출발',
+        draggable: true,
         map: mapRef.current,
       })
+      Tmapv2.event.addListener(startMarker, 'dragend', () =>
+        handleDragEnd(startMarker, 'start', {
+          lat: startLocation.lat,
+          lng: startLocation.lng,
+        })
+      )
       markersRef.current.push(startMarker)
     }
 
@@ -189,10 +251,17 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         position: new Tmapv2.LatLng(endLocation.lat, endLocation.lng),
         icon: END_ICON,
         iconSize: new Tmapv2.Size(24, 38),
-        title: `도착: ${endLocation.name}`,
+        title: `도착: ${endLocation.name} (드래그로 이동 가능)`,
         label: '도착',
+        draggable: true,
         map: mapRef.current,
       })
+      Tmapv2.event.addListener(endMarker, 'dragend', () =>
+        handleDragEnd(endMarker, 'end', {
+          lat: endLocation.lat,
+          lng: endLocation.lng,
+        })
+      )
       markersRef.current.push(endMarker)
     }
 
@@ -211,7 +280,8 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         new Tmapv2.LatLng(endLocation.lat, endLocation.lng)
       )
     }
-  }, [startLocation, endLocation, isLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startLocation, endLocation, isLoading, boundary])
 
   // 경로선 표시 (흰색 테두리 + 본선 이중 구조로 가시성 확보)
   useEffect(() => {

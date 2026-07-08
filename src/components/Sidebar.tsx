@@ -10,7 +10,10 @@ import { RecentSearches } from './RecentSearches'
 function PanelContent() {
   return (
     <div className="flex flex-col min-h-full">
-      <h1 className="text-[21px] font-semibold text-[#1d1d1f] tracking-[-0.3px] mb-6">
+      <h1
+        className="text-[21px] text-[#1d1d1f] tracking-[-0.3px] mb-6"
+        style={{ fontWeight: 600 }}
+      >
         길 찾기
       </h1>
 
@@ -35,7 +38,7 @@ export function Sidebar() {
     <>
       {/* Desktop: 지도 위에 떠 있는 frosted glass 패널 */}
       <aside
-        className="hidden lg:flex flex-col absolute left-5 top-5 bottom-5 w-[360px] z-10 bg-[#f5f5f7]/80 backdrop-blur-2xl border border-black/[0.08] rounded-[18px] overflow-hidden"
+        className="hidden lg:flex flex-col absolute left-5 top-5 bottom-5 w-[360px] z-10 bg-white/60 backdrop-blur-xl backdrop-saturate-150 border border-white/60 rounded-[18px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
         role="complementary"
         aria-label="경로 검색 패널"
       >
@@ -62,7 +65,7 @@ export function Sidebar() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setIsOpen(false)}
           ></div>
-          <aside className="absolute left-3 right-3 top-3 bottom-20 bg-[#f5f5f7]/90 backdrop-blur-2xl border border-black/[0.08] rounded-[18px] overflow-y-auto">
+          <aside className="absolute left-3 right-3 top-3 bottom-20 bg-white/70 backdrop-blur-xl backdrop-saturate-150 border border-white/60 rounded-[18px] overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
             <div className="p-6 min-h-full flex flex-col">
               <PanelContent />
             </div>
