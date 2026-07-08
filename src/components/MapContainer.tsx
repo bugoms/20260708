@@ -4,34 +4,40 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouteStore } from '@/store/routeStore'
 import type { RouteResponse } from '@/types/route'
 
-interface TmapPoint {
-  lat: number
-  lng: number
+interface TmapLatLng {
+  lat: () => number
+  lng: () => number
 }
 
 interface TmapMarker {
-  lat: number
-  lng: number
+  setMap: (map: TmapMap | null) => void
 }
 
 interface TmapPolyline {
-  path: Array<TmapPoint>
-  strokeColor: string
-  strokeWeight: number
+  setMap: (map: TmapMap | null) => void
+}
+
+interface TmapBounds {
+  extend: (latlng: TmapLatLng) => void
 }
 
 interface TmapMap {
-  addMarker: (marker: TmapMarker & { iconHTML?: string }) => void
-  addPolyline: (polyline: TmapPolyline) => void
-  fitBounds: (bounds: { min: TmapPoint; max: TmapPoint }) => void
+  fitBounds: (bounds: TmapBounds) => void
   setZoom: (zoom: number) => void
+  setCenter: (latlng: TmapLatLng) => void
+}
+
+interface Tmapv2Static {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => TmapMap
+  LatLng: new (lat: number, lng: number) => TmapLatLng
+  Marker: new (options: Record<string, unknown>) => TmapMarker
+  Polyline: new (options: Record<string, unknown>) => TmapPolyline
+  LatLngBounds: new () => TmapBounds
 }
 
 declare global {
   interface Window {
-    Tmap: {
-      Map: new (element: HTMLElement, options: Record<string, unknown>) => TmapMap
-    }
+    Tmapv2?: Tmapv2Static
   }
 }
 
@@ -42,97 +48,127 @@ export interface MapContainerProps {
 export function MapContainer({ onMapReady }: MapContainerProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<TmapMap | null>(null)
+  const markersRef = useRef<TmapMarker[]>([])
+  const polylineRef = useRef<TmapPolyline | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const { startLocation, endLocation, optimalRoute, shadeRoute, selectedRoute } =
     useRouteStore()
 
+  // 지도 초기화 - SDK(window.Tmapv2)가 로드될 때까지 기다렸다가 생성
   useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+
     const initializeMap = () => {
-      if (
-        !mapContainer.current ||
-        typeof window === 'undefined' ||
-        !window.Tmap
-      ) {
-        setTimeout(initializeMap, 100)
+      if (cancelled) return
+
+      const Tmapv2 = window.Tmapv2
+      if (!mapContainer.current || !Tmapv2 || !Tmapv2.Map) {
+        timer = setTimeout(initializeMap, 100)
         return
       }
 
+      if (mapRef.current) return // 중복 생성 방지
+
       try {
-        const map = new window.Tmap.Map(mapContainer.current, {
-          center: { lat: 37.4979, lng: 127.0276 },
+        const map = new Tmapv2.Map(mapContainer.current, {
+          center: new Tmapv2.LatLng(37.4979, 127.0276),
+          width: '100%',
+          height: '100%',
           zoom: 16,
-          backgroundColor: 'white',
         })
 
         mapRef.current = map
         setIsLoading(false)
         onMapReady?.(map)
       } catch (error) {
-        console.error('Failed to initialize map:', error)
-        setTimeout(initializeMap, 100)
+        console.error('지도 초기화 실패:', error)
+        timer = setTimeout(initializeMap, 100)
       }
     }
 
     initializeMap()
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      mapRef.current = null
+      if (mapContainer.current) {
+        mapContainer.current.innerHTML = ''
+      }
+    }
   }, [onMapReady])
 
+  // 출발/도착 마커 표시
   useEffect(() => {
-    if (!mapRef.current || isLoading) return
+    const Tmapv2 = window.Tmapv2
+    if (!mapRef.current || !Tmapv2 || isLoading) return
 
-    mapRef.current.addMarker({
-      lat: startLocation?.lat ?? 37.4979,
-      lng: startLocation?.lng ?? 127.0276,
-      iconHTML: '📍',
+    // 기존 마커 제거
+    markersRef.current.forEach((marker) => marker.setMap(null))
+    markersRef.current = []
+
+    const startMarker = new Tmapv2.Marker({
+      position: new Tmapv2.LatLng(
+        startLocation?.lat ?? 37.4979,
+        startLocation?.lng ?? 127.0276
+      ),
+      map: mapRef.current,
     })
+    markersRef.current.push(startMarker)
 
     if (endLocation) {
-      mapRef.current.addMarker({
-        lat: endLocation.lat,
-        lng: endLocation.lng,
-        iconHTML: '🚩',
+      const endMarker = new Tmapv2.Marker({
+        position: new Tmapv2.LatLng(endLocation.lat, endLocation.lng),
+        map: mapRef.current,
       })
+      markersRef.current.push(endMarker)
     }
   }, [startLocation, endLocation, isLoading])
 
+  // 경로선 표시
   useEffect(() => {
-    if (!mapRef.current || isLoading) return
+    const Tmapv2 = window.Tmapv2
+    if (!mapRef.current || !Tmapv2 || isLoading) return
 
     const route: RouteResponse | null =
       selectedRoute === 'optimal' ? optimalRoute : shadeRoute
 
-    if (!route) return
+    // 기존 경로선 제거
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null)
+      polylineRef.current = null
+    }
+
+    if (!route || route.path.length === 0) return
+
+    const latLngPath = route.path.map(
+      (coord) => new Tmapv2.LatLng(coord[1], coord[0])
+    )
 
     const polylineColor = selectedRoute === 'optimal' ? '#3B82F6' : '#10B981'
 
-    mapRef.current.addPolyline({
-      path: route.path.map((coord) => ({
-        lat: coord[1],
-        lng: coord[0],
-      })),
+    polylineRef.current = new Tmapv2.Polyline({
+      path: latLngPath,
       strokeColor: polylineColor,
-      strokeWeight: 4,
+      strokeWeight: 6,
+      map: mapRef.current,
     })
 
-    if (route.path.length > 0) {
-      const minLat = Math.min(...route.path.map((c) => c[1]))
-      const maxLat = Math.max(...route.path.map((c) => c[1]))
-      const minLng = Math.min(...route.path.map((c) => c[0]))
-      const maxLng = Math.max(...route.path.map((c) => c[0]))
-
-      mapRef.current.fitBounds({
-        min: { lat: minLat, lng: minLng },
-        max: { lat: maxLat, lng: maxLng },
-      })
-    }
+    // 경로 전체가 보이도록 화면 맞춤
+    const bounds = new Tmapv2.LatLngBounds()
+    latLngPath.forEach((latlng) => bounds.extend(latlng))
+    mapRef.current.fitBounds(bounds)
   }, [optimalRoute, shadeRoute, selectedRoute, isLoading])
 
   return (
-    <div
-      ref={mapContainer}
-      className="w-full h-full bg-gray-100"
-      data-testid="map-container"
-    >
+    <div className="relative w-full h-full">
+      <div
+        ref={mapContainer}
+        className="w-full h-full bg-gray-100"
+        data-testid="map-container"
+      />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="text-center">
