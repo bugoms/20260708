@@ -76,18 +76,34 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
 
     const loadTmapSdk = async () => {
       try {
+        console.log('Fetching T-Map API config...')
         const response = await fetch('/api/config')
-        if (!response.ok) {
-          throw new Error('Failed to fetch T-Map API key')
-        }
-        const { tmapApiKey } = await response.json()
 
+        if (!response.ok) {
+          const errorData = await response.text()
+          throw new Error(
+            `Failed to fetch T-Map API key: ${response.status} ${errorData}`
+          )
+        }
+
+        const data = await response.json()
+        const { tmapApiKey } = data
+
+        if (!tmapApiKey) {
+          throw new Error(
+            'T-Map API key not found in response. Ensure TMAP_API_KEY is set in environment variables.'
+          )
+        }
+
+        console.log('T-Map API key loaded successfully')
         const script = document.createElement('script')
         script.src = `https://apis.openapi.sk.com/tmap/jsv2?version=1&appKey=${tmapApiKey}`
         script.async = true
         script.onload = initializeMap
         script.onerror = () => {
-          console.error('Failed to load T-Map SDK')
+          console.error(
+            'Failed to load T-Map SDK from CDN. Check your API key or network connection.'
+          )
           setIsLoading(false)
         }
         document.head.appendChild(script)
@@ -98,7 +114,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
           }
         }
       } catch (error) {
-        console.error('Failed to load T-Map SDK:', error)
+        console.error('Error loading T-Map SDK:', error)
         setIsLoading(false)
       }
     }
