@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useId } from 'react'
 import { useRouteStore } from '@/store/routeStore'
 import type { Location } from '@/types/route'
 
 export function SearchBar() {
   const { startLocation, endLocation, setStartLocation, setEndLocation } =
     useRouteStore()
+
+  // 인스턴스마다 고유한 id (데스크톱/모바일 SearchBar 중복 id 방지)
+  const startId = useId()
+  const endId = useId()
 
   const [startInput, setStartInput] = useState(startLocation?.name || '')
   const [endInput, setEndInput] = useState(endLocation?.name || '')
@@ -44,11 +48,11 @@ export function SearchBar() {
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor="start" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label htmlFor={startId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           출발지
         </label>
         <input
-          id="start"
+          id={startId}
           type="text"
           placeholder="출발지를 입력하세요"
           value={startInput}
@@ -60,11 +64,11 @@ export function SearchBar() {
       </div>
 
       <div>
-        <label htmlFor="end" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label htmlFor={endId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           도착지
         </label>
         <input
-          id="end"
+          id={endId}
           type="text"
           placeholder="도착지를 입력하세요"
           value={endInput}
