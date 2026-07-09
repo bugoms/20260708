@@ -38,6 +38,8 @@ interface TmapMap {
   fitBounds: (bounds: TmapBounds) => void
   setZoom: (zoom: number) => void
   setCenter: (latlng: TmapLatLng) => void
+  panTo: (latlng: TmapLatLng) => void
+  setMapType: (type: number) => void // 1=일반, 4=위성, 5=하이브리드(위성+라벨)
 }
 
 interface Tmapv2Static {
@@ -81,6 +83,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
   const sunlightOverlayRef = useRef<TmapGroundOverlay | null>(null)
   const sunlightMetaRef = useRef<SunlightMeta | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSatellite, setIsSatellite] = useState(false)
 
   const {
     startLocation,
@@ -137,6 +140,13 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       }
     }
   }, [onMapReady])
+
+  // 지도 유형 전환 (일반 <-> 위성 하이브리드)
+  useEffect(() => {
+    if (!mapRef.current || isLoading) return
+    // 1=일반, 5=하이브리드(위성+도로/라벨 - 위성만(4)보다 실용적)
+    mapRef.current.setMapType(isSatellite ? 5 : 1)
+  }, [isSatellite, isLoading])
 
   // 역삼동 행정 경계 로드 (최초 1회)
   useEffect(() => {
@@ -263,11 +273,11 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
       bounds.extend(new Tmapv2.LatLng(endLocation.lat, endLocation.lng))
       mapRef.current.fitBounds(bounds)
     } else if (startLocation) {
-      mapRef.current.setCenter(
+      mapRef.current.panTo(
         new Tmapv2.LatLng(startLocation.lat, startLocation.lng)
       )
     } else if (endLocation) {
-      mapRef.current.setCenter(
+      mapRef.current.panTo(
         new Tmapv2.LatLng(endLocation.lat, endLocation.lng)
       )
     }
@@ -326,6 +336,23 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         className="w-full h-full bg-gray-100"
         data-testid="map-container"
       />
+
+      {/* 위성 지도 토글 (우상단, 줌 컨트롤 왼쪽) */}
+      {!isLoading && (
+        <button
+          onClick={() => setIsSatellite((prev) => !prev)}
+          className={`absolute top-5 right-14 z-10 h-[36px] px-4 rounded-full text-[13px] tracking-[-0.2px] border backdrop-blur-xl transition active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.10)] ${
+            isSatellite
+              ? 'bg-[#1d1d1f] text-white border-white/20 font-semibold'
+              : 'bg-white/80 text-[#1d1d1f] border-black/[0.08]'
+          }`}
+          aria-pressed={isSatellite}
+          aria-label="위성 지도 전환"
+        >
+          {isSatellite ? '일반 지도' : '위성 지도'}
+        </button>
+      )}
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="text-center">
