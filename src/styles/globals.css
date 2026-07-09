@@ -74,3 +74,19 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* 경고창 등장 애니메이션 (Apple풍 - 살짝 커지며 페이드인) */
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-modal-pop {
+  animation: modal-pop 0.18s ease-out;
+}

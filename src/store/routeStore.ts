@@ -14,6 +14,7 @@ interface RouteStore {
   boundary: Array<Array<[number, number]>> | null // 역삼동 경계 링들 [lng,lat][][]
   recentSearches: RecentSearch[]
   areaAlert: string | null // 서비스 구역 이탈 경고창 메시지
+  sunlightTime: string | null // 일조량 지도 표시 시각 ('09'|'12'|'15'|'18'), null=끔
 
   setStartLocation: (location: Location | null) => void
   setEndLocation: (location: Location | null) => void
@@ -26,6 +27,7 @@ interface RouteStore {
   setBoundary: (boundary: Array<Array<[number, number]>> | null) => void
   setRecentSearches: (searches: RecentSearch[]) => void
   setAreaAlert: (message: string | null) => void
+  setSunlightTime: (time: string | null) => void
   reset: () => void
 }
 
@@ -41,6 +43,7 @@ const initialState = {
   boundary: null,
   recentSearches: [],
   areaAlert: null,
+  sunlightTime: null,
 }
 
 export const useRouteStore = create<RouteStore>((set) => ({
@@ -60,6 +63,7 @@ export const useRouteStore = create<RouteStore>((set) => ({
   setBoundary: (boundary) => set({ boundary }),
   setRecentSearches: (searches) => set({ recentSearches: searches }),
   setAreaAlert: (message) => set({ areaAlert: message }),
+  setSunlightTime: (time) => set({ sunlightTime: time }),
   // 경계/최근검색은 정적·영속 데이터이므로 reset해도 유지
   reset: () =>
     set((state) => ({

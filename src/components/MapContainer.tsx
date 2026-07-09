@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouteStore } from '@/store/routeStore'
-import { pointInPolygon } from '@/utils/geo'
 import type { RouteResponse } from '@/types/route'
 
 interface TmapLatLng {
@@ -17,8 +16,6 @@ interface TmapSize {
 
 interface TmapMarker {
   setMap: (map: TmapMap | null) => void
-  getPosition: () => TmapLatLng
-  setPosition: (latlng: TmapLatLng) => void
 }
 
 interface TmapPolyline {
@@ -26,6 +23,10 @@ interface TmapPolyline {
 }
 
 interface TmapPolygon {
+  setMap: (map: TmapMap | null) => void
+}
+
+interface TmapGroundOverlay {
   setMap: (map: TmapMap | null) => void
 }
 
@@ -46,14 +47,8 @@ interface Tmapv2Static {
   Marker: new (options: Record<string, unknown>) => TmapMarker
   Polyline: new (options: Record<string, unknown>) => TmapPolyline
   Polygon: new (options: Record<string, unknown>) => TmapPolygon
+  GroundOverlay: new (options: Record<string, unknown>) => TmapGroundOverlay
   LatLngBounds: new () => TmapBounds
-  event: {
-    addListener: (
-      target: unknown,
-      eventType: string,
-      handler: () => void
-    ) => void
-  }
 }
 
 declare global {
@@ -66,6 +61,13 @@ declare global {
 const START_ICON = 'https://tmapapi.tmapmobility.com/upload/tmap/marker/pin_r_m_s.png'
 const END_ICON = 'https://tmapapi.tmapmobility.com/upload/tmap/marker/pin_b_m_e.png'
 
+interface SunlightMeta {
+  south: number
+  west: number
+  north: number
+  east: number
+}
+
 export interface MapContainerProps {
   onMapReady?: (map: TmapMap) => void
 }
@@ -76,6 +78,8 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
   const markersRef = useRef<TmapMarker[]>([])
   const polylinesRef = useRef<TmapPolyline[]>([])
   const boundaryPolygonsRef = useRef<TmapPolygon[]>([])
+  const sunlightOverlayRef = useRef<TmapGroundOverlay | null>(null)
+  const sunlightMetaRef = useRef<SunlightMeta | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const {
@@ -86,21 +90,8 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     selectedRoute,
     boundary,
     setBoundary,
-    setStartLocation,
-    setEndLocation,
-    setAreaAlert,
+    sunlightTime,
   } = useRouteStore()
-
-  /** 좌표가 서비스 구역 안인지 (경계 미로드 시 통과) */
-  const isInArea = (lat: number, lng: number): boolean => {
-    if (!boundary || boundary.length === 0) return true
-    return boundary.some((ring) =>
-      pointInPolygon(
-        { lat, lng },
-        ring.map((c) => ({ lat: c[1], lng: c[0] }))
-      )
-    )
-  }
 
   // 지도 초기화 - SDK(window.Tmapv2)가 로드될 때까지 기다렸다가 생성
   useEffect(() => {
@@ -187,6 +178,51 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     )
   }, [boundary, isLoading])
 
+  // 일조량 이미지 오버레이 (시간대별 사전 생성 이미지)
+  useEffect(() => {
+    const Tmapv2 = window.Tmapv2
+    if (!mapRef.current || !Tmapv2 || isLoading) return
+
+    // 기존 오버레이 제거
+    if (sunlightOverlayRef.current) {
+      sunlightOverlayRef.current.setMap(null)
+      sunlightOverlayRef.current = null
+    }
+
+    if (!sunlightTime) return
+
+    let cancelled = false
+    const apply = async () => {
+      try {
+        if (!sunlightMetaRef.current) {
+          const res = await fetch('/sunlight/meta.json')
+          if (!res.ok) return
+          sunlightMetaRef.current = (await res.json()) as SunlightMeta
+        }
+        if (cancelled || !mapRef.current) return
+
+        const meta = sunlightMetaRef.current
+        const bounds = new Tmapv2.LatLngBounds()
+        bounds.extend(new Tmapv2.LatLng(meta.south, meta.west))
+        bounds.extend(new Tmapv2.LatLng(meta.north, meta.east))
+
+        sunlightOverlayRef.current = new Tmapv2.GroundOverlay({
+          url: `/sunlight/sunlight-${sunlightTime}.png`,
+          bounds,
+          opacity: 0.5,
+          map: mapRef.current,
+        })
+      } catch {
+        // 이미지 로드 실패 시 오버레이만 생략
+      }
+    }
+    apply()
+
+    return () => {
+      cancelled = true
+    }
+  }, [sunlightTime, isLoading])
+
   // 출발/도착 마커 표시 + 지도 자동 이동
   useEffect(() => {
     const Tmapv2 = window.Tmapv2
@@ -196,61 +232,15 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     markersRef.current.forEach((marker) => marker.setMap(null))
     markersRef.current = []
 
-    // 마커 드래그 종료 처리: 경계 검증 -> 역지오코딩 주소를 입력값에 자동 반영
-    // (위치 setter가 기존 경로선을 자동 제거함 - 선은 버튼 클릭 시에만 생성)
-    const handleDragEnd = async (
-      marker: TmapMarker,
-      kind: 'start' | 'end',
-      original: { lat: number; lng: number }
-    ) => {
-      const pos = marker.getPosition()
-      const lat = pos.lat()
-      const lng = pos.lng()
-
-      if (!isInArea(lat, lng)) {
-        setAreaAlert(
-          '이동한 위치가 역삼동을 벗어났어요. 마커를 원래 위치로 되돌립니다.'
-        )
-        marker.setPosition(new Tmapv2.LatLng(original.lat, original.lng))
-        return
-      }
-
-      // 역지오코딩으로 실제 주소를 가져와 입력값으로 사용
-      let name =
-        kind === 'start' ? '지도에서 지정한 출발지' : '지도에서 지정한 도착지'
-      try {
-        const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
-        if (res.ok) {
-          const data = (await res.json()) as { name?: string }
-          if (data.name) name = data.name
-        }
-      } catch {
-        // 주소 조회 실패 시 기본 이름 사용
-      }
-
-      if (kind === 'start') {
-        setStartLocation({ name, lat, lng })
-      } else {
-        setEndLocation({ name, lat, lng })
-      }
-    }
-
     if (startLocation) {
       const startMarker = new Tmapv2.Marker({
         position: new Tmapv2.LatLng(startLocation.lat, startLocation.lng),
         icon: START_ICON,
         iconSize: new Tmapv2.Size(24, 38),
-        title: `출발: ${startLocation.name} (드래그로 이동 가능)`,
+        title: `출발: ${startLocation.name}`,
         label: '출발',
-        draggable: true,
         map: mapRef.current,
       })
-      Tmapv2.event.addListener(startMarker, 'dragend', () =>
-        handleDragEnd(startMarker, 'start', {
-          lat: startLocation.lat,
-          lng: startLocation.lng,
-        })
-      )
       markersRef.current.push(startMarker)
     }
 
@@ -259,17 +249,10 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         position: new Tmapv2.LatLng(endLocation.lat, endLocation.lng),
         icon: END_ICON,
         iconSize: new Tmapv2.Size(24, 38),
-        title: `도착: ${endLocation.name} (드래그로 이동 가능)`,
+        title: `도착: ${endLocation.name}`,
         label: '도착',
-        draggable: true,
         map: mapRef.current,
       })
-      Tmapv2.event.addListener(endMarker, 'dragend', () =>
-        handleDragEnd(endMarker, 'end', {
-          lat: endLocation.lat,
-          lng: endLocation.lng,
-        })
-      )
       markersRef.current.push(endMarker)
     }
 
@@ -288,10 +271,11 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         new Tmapv2.LatLng(endLocation.lat, endLocation.lng)
       )
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startLocation, endLocation, isLoading, boundary])
+  }, [startLocation, endLocation, isLoading])
 
   // 경로선 표시 (흰색 테두리 + 본선 이중 구조로 가시성 확보)
+  // sunlightTime 의존성: 일조량 오버레이가 새로 깔린 뒤 경로선을 다시 그려
+  // 선이 항상 이미지 위에 보이도록 유지
   useEffect(() => {
     const Tmapv2 = window.Tmapv2
     if (!mapRef.current || !Tmapv2 || isLoading) return
@@ -333,7 +317,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     const bounds = new Tmapv2.LatLngBounds()
     latLngPath.forEach((latlng) => bounds.extend(latlng))
     mapRef.current.fitBounds(bounds)
-  }, [optimalRoute, shadeRoute, selectedRoute, isLoading])
+  }, [optimalRoute, shadeRoute, selectedRoute, isLoading, sunlightTime])
 
   return (
     <div className="relative w-full h-full">

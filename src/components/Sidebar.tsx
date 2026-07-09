@@ -5,6 +5,7 @@ import { SearchBar } from './SearchBar'
 import { RouteOptionButtons } from './RouteOptionButtons'
 import { RouteDetails } from './RouteDetails'
 import { RecentSearches } from './RecentSearches'
+import { SunlightControl } from './SunlightControl'
 
 /** 패널 내용 - 데스크톱 플로팅 패널과 모바일 드로어에서 공용 */
 function PanelContent() {
@@ -20,6 +21,7 @@ function PanelContent() {
       <div className="space-y-6">
         <SearchBar />
         <RouteOptionButtons />
+        <SunlightControl />
         <RouteDetails />
       </div>
 

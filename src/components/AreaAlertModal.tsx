@@ -40,7 +40,7 @@ export function AreaAlertModal() {
         className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={() => setAreaAlert(null)}
       ></div>
-      <div className="relative w-full max-w-[300px] bg-white rounded-[18px] p-6 pt-7 text-center shadow-[0_16px_48px_rgba(0,0,0,0.18)]">
+      <div className="relative w-full max-w-[300px] bg-white rounded-[18px] p-6 pt-7 text-center shadow-[0_16px_48px_rgba(0,0,0,0.18)] animate-modal-pop">
         <p
           className="text-[17px] text-[#1d1d1f] tracking-[-0.374px] leading-[1.24] mb-2"
           style={{ fontWeight: 600 }}
