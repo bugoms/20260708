@@ -17,6 +17,7 @@ import {
 } from '@/utils/overpass'
 import { scoreRoute } from '@/utils/shadeScoring'
 import { routeWithShade, pathSimilarity } from '@/utils/osmRouter'
+import { undergroundNetworksOnPath } from '@/utils/underground'
 import {
   distanceMeters,
   bboxWithMargin,
@@ -228,7 +229,11 @@ export async function POST(request: Request) {
         const breakdown = scoreRoute(osmRoute.path, walk, now)
         const crossedParks = parksOnPath(osmRoute.path, walk.parks)
         const namedParks = crossedParks.filter((n) => n !== '공원')
+        const undergroundVia = undergroundNetworksOnPath(osmRoute.path)
         const viaParts = ['그늘 우선 탐색']
+        if (undergroundVia.length > 0) {
+          viaParts.push(`${undergroundVia.join(', ')} 지하보도 통과`)
+        }
         if (namedParks.length > 0) {
           viaParts.push(`${namedParks.join(', ')} 통과`)
         } else if (crossedParks.length > 0) {
@@ -243,6 +248,7 @@ export async function POST(request: Request) {
           shadeDetail: {
             buildingShadowRatio: breakdown.buildingShadowRatio,
             parkRatio: breakdown.parkRatio,
+            undergroundRatio: breakdown.undergroundRatio,
             exposedRatio: breakdown.exposedRatio,
             sunAltitude: breakdown.sunAltitude,
             isNight: breakdown.isNight,
@@ -286,6 +292,7 @@ export async function POST(request: Request) {
       shadeDetail: {
         buildingShadowRatio: breakdown.buildingShadowRatio,
         parkRatio: breakdown.parkRatio,
+        undergroundRatio: breakdown.undergroundRatio,
         exposedRatio: breakdown.exposedRatio,
         sunAltitude: breakdown.sunAltitude,
         isNight: breakdown.isNight,

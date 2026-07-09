@@ -1,0 +1,106 @@
+{
+  "source": "출입구(entrance) 좌표: OpenStreetMap railway=subway_entrance 실측 (2026-07 조회). 내부 통로(internal)·엘리베이터(elevator) 좌표: 역 구내 지하보행로 안내도 기반 근사.",
+  "networks": [
+    {
+      "id": "sinnonhyeon",
+      "name": "신논현역",
+      "nodes": [
+        { "id": "c", "lat": 37.5044, "lng": 127.0248, "type": "internal" },
+        { "id": "w", "lat": 37.50435, "lng": 127.02405, "type": "internal" },
+        { "id": "s", "lat": 37.5031, "lng": 127.0252, "type": "internal" },
+        { "id": "x1", "lat": 37.5043997, "lng": 127.0239975, "type": "entrance", "name": "신논현역 1번 출구" },
+        { "id": "x2", "lat": 37.5046514, "lng": 127.0241692, "type": "entrance", "name": "신논현역 2번 출구" },
+        { "id": "x3", "lat": 37.5047215, "lng": 127.0246287, "type": "entrance", "name": "신논현역 3번 출구" },
+        { "id": "x4", "lat": 37.504627, "lng": 127.0252201, "type": "entrance", "name": "신논현역 4번 출구" },
+        { "id": "x5", "lat": 37.5041873, "lng": 127.0248942, "type": "entrance", "name": "신논현역 5번 출구" },
+        { "id": "x6", "lat": 37.5030953, "lng": 127.0254056, "type": "entrance", "name": "신논현역 6번 출구" },
+        { "id": "x7", "lat": 37.5029515, "lng": 127.0250153, "type": "entrance", "name": "신논현역 7번 출구" },
+        { "id": "x8", "lat": 37.5040442, "lng": 127.0244486, "type": "entrance", "name": "신논현역 8번 출구" },
+        { "id": "x9", "lat": 37.5041111, "lng": 127.0239758, "type": "entrance", "name": "신논현역 9번 출구" },
+        { "id": "ev1", "lat": 37.50455, "lng": 127.02388, "type": "elevator", "name": "신논현역 엘리베이터(북서)" },
+        { "id": "ev2", "lat": 37.5039, "lng": 127.02465, "type": "elevator", "name": "신논현역 엘리베이터(남서)" }
+      ],
+      "edges": [
+        ["c", "w"],
+        ["c", "s"],
+        ["c", "x3"],
+        ["c", "x4"],
+        ["c", "x5"],
+        ["c", "x8"],
+        ["c", "ev2"],
+        ["w", "x1"],
+        ["w", "x2"],
+        ["w", "x9"],
+        ["w", "ev1"],
+        ["s", "x6"],
+        ["s", "x7"]
+      ]
+    },
+    {
+      "id": "seonjeongneung",
+      "name": "선정릉역",
+      "nodes": [
+        { "id": "w", "lat": 37.51013, "lng": 127.04335, "type": "internal" },
+        { "id": "c", "lat": 37.5103, "lng": 127.04395, "type": "internal" },
+        { "id": "e", "lat": 37.51047, "lng": 127.0446, "type": "internal" },
+        { "id": "x1", "lat": 37.5102159, "lng": 127.0432705, "type": "entrance", "name": "선정릉역 1번 출구" },
+        { "id": "x2", "lat": 37.5105604, "lng": 127.0445508, "type": "entrance", "name": "선정릉역 2번 출구" },
+        { "id": "x3", "lat": 37.510388, "lng": 127.0446222, "type": "entrance", "name": "선정릉역 3번 출구" },
+        { "id": "x4", "lat": 37.510043, "lng": 127.0434159, "type": "entrance", "name": "선정릉역 4번 출구" },
+        { "id": "ev1", "lat": 37.51028, "lng": 127.04348, "type": "elevator", "name": "선정릉역 엘리베이터(서측)" },
+        { "id": "ev2", "lat": 37.50996, "lng": 127.04398, "type": "elevator", "name": "선정릉역 엘리베이터(남측)" }
+      ],
+      "edges": [
+        ["w", "c"],
+        ["c", "e"],
+        ["w", "x1"],
+        ["w", "x4"],
+        ["w", "ev1"],
+        ["e", "x2"],
+        ["e", "x3"],
+        ["c", "ev2"]
+      ]
+    },
+    {
+      "id": "seolleung",
+      "name": "선릉역",
+      "nodes": [
+        { "id": "w", "lat": 37.50415, "lng": 127.0478, "type": "internal" },
+        { "id": "c", "lat": 37.50432, "lng": 127.0486, "type": "internal" },
+        { "id": "m", "lat": 37.50436, "lng": 127.0489, "type": "internal" },
+        { "id": "e", "lat": 37.5044, "lng": 127.04925, "type": "internal" },
+        { "id": "de", "lat": 37.50448, "lng": 127.04965, "type": "internal" },
+        { "id": "x1", "lat": 37.504478, "lng": 127.0499414, "type": "entrance", "name": "선릉역 1번 출구" },
+        { "id": "x2", "lat": 37.504039, "lng": 127.0493039, "type": "entrance", "name": "선릉역 2번 출구" },
+        { "id": "x3", "lat": 37.5040316, "lng": 127.0491545, "type": "entrance", "name": "선릉역 3번 출구" },
+        { "id": "x4", "lat": 37.5038538, "lng": 127.0478118, "type": "entrance", "name": "선릉역 4번 출구" },
+        { "id": "x5", "lat": 37.5043817, "lng": 127.0477395, "type": "entrance", "name": "선릉역 5번 출구" },
+        { "id": "x6", "lat": 37.5045706, "lng": 127.048482, "type": "entrance", "name": "선릉역 6번 출구" },
+        { "id": "x7", "lat": 37.5049763, "lng": 127.0485637, "type": "entrance", "name": "선릉역 7번 출구" },
+        { "id": "x8", "lat": 37.5050134, "lng": 127.0488953, "type": "entrance", "name": "선릉역 8번 출구" },
+        { "id": "x9", "lat": 37.5048207, "lng": 127.0493039, "type": "entrance", "name": "선릉역 9번 출구" },
+        { "id": "x10", "lat": 37.5049207, "lng": 127.0496775, "type": "entrance", "name": "선릉역 10번 출구" },
+        { "id": "ev1", "lat": 37.50445, "lng": 127.048, "type": "elevator", "name": "선릉역 엘리베이터(서측)" },
+        { "id": "ev2", "lat": 37.50425, "lng": 127.04895, "type": "elevator", "name": "선릉역 엘리베이터(중앙)" }
+      ],
+      "edges": [
+        ["w", "c"],
+        ["c", "m"],
+        ["m", "e"],
+        ["e", "de"],
+        ["w", "x4"],
+        ["w", "x5"],
+        ["w", "ev1"],
+        ["c", "x6"],
+        ["c", "x7"],
+        ["m", "x8"],
+        ["m", "ev2"],
+        ["e", "x2"],
+        ["e", "x3"],
+        ["e", "x9"],
+        ["de", "x1"],
+        ["de", "x10"]
+      ]
+    }
+  ]
+}

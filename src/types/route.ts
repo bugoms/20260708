@@ -23,6 +23,7 @@ export interface RouteResponse {
 export interface ShadeDetail {
   buildingShadowRatio: number // 건물 그림자 구간 비율(%)
   parkRatio: number // 공원 구간 비율(%)
+  undergroundRatio?: number // 지하보도 구간 비율(%)
   exposedRatio: number // 햇빛 노출 구간 비율(%)
   sunAltitude: number // 태양 고도(도)
   isNight: boolean

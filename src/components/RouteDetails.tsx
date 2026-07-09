@@ -161,13 +161,19 @@ export function RouteDetails() {
                 <span>공원 구간</span>
                 <span>{shadeRoute.shadeDetail.parkRatio}%</span>
               </div>
+              {(shadeRoute.shadeDetail.undergroundRatio ?? 0) > 0 && (
+                <div className="flex justify-between text-[12px] text-[#86868b] tracking-[-0.12px]">
+                  <span>지하보도</span>
+                  <span>{shadeRoute.shadeDetail.undergroundRatio}%</span>
+                </div>
+              )}
               <div className="flex justify-between text-[12px] text-[#86868b] tracking-[-0.12px]">
                 <span>햇빛 노출</span>
                 <span>{shadeRoute.shadeDetail.exposedRatio}%</span>
               </div>
               <p className="text-[10px] text-[#a1a1a6] tracking-[-0.08px] leading-[1.3] pt-1">
                 현재 태양 고도 {shadeRoute.shadeDetail.sunAltitude}° 기준 · 건물
-                그림자와 공원 데이터로 계산됨 · 차도 횡단은 횡단보도 기준
+                그림자·공원·지하보도 데이터로 계산됨 · 차도 횡단은 횡단보도 기준
               </p>
             </div>
           )}

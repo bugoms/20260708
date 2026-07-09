@@ -88,6 +88,44 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   return inside
 }
 
+/** 점에서 선분 a-b까지의 최단 거리 (미터, 국지 평면 근사) */
+export function distanceToSegmentMeters(p: Point, a: Point, b: Point): number {
+  const mPerLat = 111320
+  const mPerLng = 111320 * Math.cos(p.lat * RAD)
+  // p를 원점으로 하는 평면 좌표
+  const ax = (a.lng - p.lng) * mPerLng
+  const ay = (a.lat - p.lat) * mPerLat
+  const bx = (b.lng - p.lng) * mPerLng
+  const by = (b.lat - p.lat) * mPerLat
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lenSq)) : 0
+  const cx = ax + dx * t
+  const cy = ay + dy * t
+  return Math.sqrt(cx * cx + cy * cy)
+}
+
+/** 두 선분(p1-p2, p3-p4)이 서로 가로지르는지 (끝점 접촉은 제외) */
+export function segmentsIntersect(
+  p1: Point,
+  p2: Point,
+  p3: Point,
+  p4: Point
+): boolean {
+  // 방향 판정(외적 부호)은 위경도 비등방 스케일에 불변이므로 좌표 그대로 사용
+  const cross = (a: Point, b: Point, c: Point) =>
+    (b.lng - a.lng) * (c.lat - a.lat) - (b.lat - a.lat) * (c.lng - a.lng)
+  const d1 = cross(p3, p4, p1)
+  const d2 = cross(p3, p4, p2)
+  const d3 = cross(p1, p2, p3)
+  const d4 = cross(p1, p2, p4)
+  return (
+    ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+  )
+}
+
 /** 점에서 선분(polyline)까지 최소 거리 근사 (미터) — 정점 간 거리로 근사 */
 export function minDistanceToPolyline(point: Point, line: Point[]): number {
   let min = Infinity

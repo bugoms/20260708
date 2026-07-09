@@ -2,6 +2,7 @@
 
 import type { Point } from './geo'
 import { polygonCenter } from './geo'
+import { injectUndergroundNetworks } from './underground'
 
 export interface Building {
   footprint: Point[] // 건물 윤곽
@@ -18,6 +19,7 @@ export interface Park {
 export interface AreaData {
   buildings: Building[]
   parks: Park[]
+  undergroundSegments?: Array<[Point, Point]> // 지하보도 통로 선분 - 그늘 채점용
 }
 
 /** 보행 네트워크 way (그래프 구축용 - 노드 id 참조 포함) */
@@ -25,13 +27,17 @@ export interface WalkWay {
   nodeIds: number[]
   highway: string
   isCrossing: boolean // 횡단보도 구간(footway=crossing) 여부
+  isUnderground?: boolean // 지하보도 통로 (완전 그늘)
+  isEntranceLink?: boolean // 지하보도 출입구 <-> 지상 노드 연결 (계단 페널티)
 }
 
 export interface WalkData extends AreaData {
   ways: WalkWay[]
-  nodes: Map<number, Point> // OSM 노드 id -> 좌표
+  nodes: Map<number, Point> // OSM 노드 id -> 좌표 (지하 노드는 음수 id)
   crossingNodeIds: Set<number> // 횡단보도 지점(highway=crossing) 노드 id
   majorRoadNodeIds: Set<number> // 대로(primary/secondary) 센터라인 노드 id - 무단횡단 감지용
+  majorRoadSegments: Array<[Point, Point]> // 대로 센터라인 선분 - 지하 출입구 연결이 대로를 가로지르지 않도록
+  undergroundSegments: Array<[Point, Point]>
 }
 
 interface OverpassElement {
@@ -197,8 +203,10 @@ node(w.roads);
 out skel qt;
 node["highway"="crossing"](${bboxStr});
 out body;
-way["highway"~"^(primary|secondary|primary_link|secondary_link|trunk)$"](${bboxStr});
-out body;
+way["highway"~"^(primary|secondary|primary_link|secondary_link|trunk)$"](${bboxStr})->.major;
+.major out body;
+node(w.major);
+out skel qt;
 (
   way["building"](${bboxStr});
   way["leisure"="park"](${bboxStr});
@@ -220,6 +228,7 @@ out tags geom;
   const nodes = new Map<number, Point>()
   const crossingNodeIds = new Set<number>()
   const majorRoadNodeIds = new Set<number>()
+  const majorWayNodeIds: number[][] = []
   const areaElements: OverpassElement[] = []
 
   for (const el of json.elements) {
@@ -235,6 +244,7 @@ out tags geom;
         for (const nodeId of el.nodes) {
           majorRoadNodeIds.add(nodeId)
         }
+        majorWayNodeIds.push(el.nodes)
       } else {
         ways.push({
           nodeIds: el.nodes,
@@ -247,6 +257,16 @@ out tags geom;
     }
   }
 
+  // 대로 센터라인 선분 (노드 좌표는 위 루프에서 모두 수집된 뒤에 조합)
+  const majorRoadSegments: Array<[Point, Point]> = []
+  for (const wayNodes of majorWayNodeIds) {
+    for (let i = 1; i < wayNodes.length; i++) {
+      const a = nodes.get(wayNodes[i - 1])
+      const b = nodes.get(wayNodes[i])
+      if (a && b) majorRoadSegments.push([a, b])
+    }
+  }
+
   const area = parseBuildingsAndParks(areaElements)
   const data: WalkData = {
     ...area,
@@ -254,7 +274,10 @@ out tags geom;
     nodes,
     crossingNodeIds,
     majorRoadNodeIds,
+    majorRoadSegments,
+    undergroundSegments: [],
   }
+  injectUndergroundNetworks(data, bbox)
   walkCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
   return data
 }

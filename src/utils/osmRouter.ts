@@ -36,6 +36,11 @@ const BIG_ROAD_PENALTY = 1.5
 const ILLEGAL_CROSS_PENALTY = 3.0
 // 횡단보도 구간(footway=crossing) 우대 - 경로가 횡단보도로 꺾이도록
 const CROSSWALK_BONUS = 0.85
+// 지하보도(지하철역 지하 통로): 완전 그늘이라 한낮 대로 구간에서 자연히 선택된다.
+// 출입구 계단 오르내림은 비용 페널티(+35m 상당)와 실제 소요시간(+25초/회)으로 반영
+// -> 그늘 이득이 계단 수고를 넘어설 만큼 긴 구간에서만 지하로 꿰어간다.
+const UNDERGROUND_ENTRANCE_COST_M = 35
+const UNDERGROUND_STAIR_TIME_S = 25
 
 interface Edge {
   to: number
@@ -240,6 +245,11 @@ export function routeWithShade(
     else adjacency.set(from, [{ to, length, cost }])
   }
 
+  // 지하보도 출입구 연결 엣지 (경로 복원 시 계단 통과 횟수 집계용)
+  const edgeKey = (a: number, b: number): string =>
+    a < b ? `${a}:${b}` : `${b}:${a}`
+  const entranceLinkKeys = new Set<string>()
+
   for (const way of walk.ways) {
     for (let i = 1; i < way.nodeIds.length; i++) {
       const aId = way.nodeIds[i - 1]
@@ -249,7 +259,8 @@ export function routeWithShade(
       if (!a || !b) continue
 
       const length = distanceMeters(a, b)
-      if (length === 0) continue
+      // 출입구가 지상 노드와 좌표가 겹치면 길이 0이 될 수 있으나 연결은 유지해야 함
+      if (length === 0 && !way.isEntranceLink) continue
 
       const mid: Point = {
         lat: (a.lat + b.lat) / 2,
@@ -258,7 +269,15 @@ export function routeWithShade(
 
       let cost: number
 
-      if (way.isCrossing) {
+      if (way.isUnderground) {
+        // 지하 통로: 항상 완전 그늘. 밤에는 이점이 없으므로 정상 비용.
+        // 최적길 회피/차도 페널티는 지하와 무관하므로 미적용.
+        cost = isDaytime ? length * (1 - SHADE_WEIGHT) : length
+      } else if (way.isEntranceLink) {
+        // 지하보도 출입구: 계단 오르내림 페널티
+        cost = length + UNDERGROUND_ENTRANCE_COST_M
+        entranceLinkKeys.add(edgeKey(aId, bId))
+      } else if (way.isCrossing) {
         // 횡단보도 구간: 우대 비용, 그늘/회피 페널티 미적용
         // (대로를 건너는 유일하게 올바른 통로이므로 항상 매력적이어야 함)
         cost = length * CROSSWALK_BONUS
@@ -301,6 +320,7 @@ export function routeWithShade(
     let bestId: number | null = null
     let bestDist = SNAP_MAX_DIST_M
     for (const [id, coord] of walk.nodes) {
+      if (id < 0) continue // 지하 노드에는 직접 스냅 금지 (출입구 경유 강제)
       if (!adjacency.has(id)) continue // 고립 노드 제외
       const d = distanceMeters(p, coord)
       if (d < bestDist) {
@@ -371,6 +391,14 @@ export function routeWithShade(
   }
   nodePath.reverse()
 
+  // 지하보도 출입구(계단) 통과 횟수 -> 소요시간에 가산
+  let stairCrossings = 0
+  for (let i = 1; i < nodePath.length; i++) {
+    if (entranceLinkKeys.has(edgeKey(nodePath[i - 1], nodePath[i]))) {
+      stairCrossings++
+    }
+  }
+
   const path: Array<[number, number]> = [[start.lng, start.lat]]
   let distance = 0
   let prevPoint: Point = start
@@ -386,7 +414,9 @@ export function routeWithShade(
   return {
     path,
     distance: Math.round(distance),
-    duration: Math.round(distance / WALKING_SPEED_MPS),
+    duration: Math.round(
+      distance / WALKING_SPEED_MPS + stairCrossings * UNDERGROUND_STAIR_TIME_S
+    ),
   }
 }
 
