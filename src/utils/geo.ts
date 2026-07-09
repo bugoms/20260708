@@ -72,7 +72,7 @@ export function samplePath(
   return points
 }
 
-/** 점이 다각형 안에 있는지 (ray casting) */
+/** 점이 다각형 안에 있는지 (ray casting - 교차 횟수 홀짝 판정) */
 export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -83,7 +83,7 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
     const intersect =
       yi > point.lat !== yj > point.lat &&
       point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi
-    if (intersect) inside = true
+    if (intersect) inside = !inside
   }
   return inside
 }
