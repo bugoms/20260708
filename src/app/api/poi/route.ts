@@ -115,17 +115,19 @@ export async function GET(request: Request) {
       }
     }
 
-    // 서비스 구역(역삼동) 결과 우선. 역삼동 결과가 있으면 그것만,
-    // 없으면 전체 반환 (선택 시 클라이언트의 경계 검증이 안내함)
-    const inYeoksam = merged.filter((poi) => poi.address.includes('역삼동'))
-    const results = (inYeoksam.length > 0 ? inYeoksam : merged).slice(0, 8)
-
-    // 검색어와 이름이 일치하는 항목을 앞으로 (안정 정렬 - 기존 순서 유지)
+    // 구역 밖 결과도 숨기지 않고 그대로 노출한다.
+    // (숨기면 '논현역' 검색 시 유사한 역삼동 장소만 보여 사용자가 혼란)
+    // 정렬: 1) 검색어-이름 매칭 2) 역삼동 우선. 선택 시 클라이언트가
+    // 구역 밖이면 경고창으로 안내한다.
     const normalized = keyword.replace(/\s/g, '')
+    const results = merged.slice(0, 10)
     results.sort((a, b) => {
       const aMatch = a.name.replace(/\s/g, '').includes(normalized) ? 0 : 1
       const bMatch = b.name.replace(/\s/g, '').includes(normalized) ? 0 : 1
-      return aMatch - bMatch
+      if (aMatch !== bMatch) return aMatch - bMatch
+      const aIn = a.address.includes('역삼동') ? 0 : 1
+      const bIn = b.address.includes('역삼동') ? 0 : 1
+      return aIn - bIn
     })
 
     return Response.json(

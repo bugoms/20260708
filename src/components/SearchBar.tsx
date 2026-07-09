@@ -176,22 +176,34 @@ function LocationField({
               검색 결과가 없습니다.
             </li>
           ) : (
-            results.map((poi, index) => (
-              <li key={`${poi.name}-${index}`}>
-                <button
-                  type="button"
-                  onClick={() => handlePick(poi)}
-                  className="w-full text-left px-5 py-2.5 hover:bg-black/[0.04] active:scale-[0.99] transition"
-                >
-                  <span className="block text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] truncate">
-                    {poi.name}
-                  </span>
-                  <span className="block text-[12px] text-[#86868b] tracking-[-0.12px] truncate">
-                    {poi.address}
-                  </span>
-                </button>
-              </li>
-            ))
+            results.map((poi, index) => {
+              const outside = !isInServiceArea(poi, boundary)
+              return (
+                <li key={`${poi.name}-${index}`}>
+                  <button
+                    type="button"
+                    onClick={() => handlePick(poi)}
+                    className={`w-full text-left px-5 py-2.5 hover:bg-black/[0.04] active:scale-[0.99] transition ${
+                      outside ? 'opacity-55' : ''
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] truncate">
+                        {poi.name}
+                      </span>
+                      {outside && (
+                        <span className="shrink-0 text-[10px] text-[#b64400] bg-[#fff2ec] border border-[#f5d5c5] rounded-full px-1.5 py-px">
+                          구역 밖
+                        </span>
+                      )}
+                    </span>
+                    <span className="block text-[12px] text-[#86868b] tracking-[-0.12px] truncate">
+                      {poi.address}
+                    </span>
+                  </button>
+                </li>
+              )
+            })
           )}
         </ul>
       )}

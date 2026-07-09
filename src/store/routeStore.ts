@@ -5,7 +5,9 @@ import type { RecentSearch } from '@/utils/recentSearches'
 interface RouteStore {
   startLocation: Location | null
   endLocation: Location | null
-  selectedRoute: RouteType
+  // 두 경로를 동시에 표시할 수 있음. 최소 1개는 항상 켜져 있어야 함
+  showOptimal: boolean
+  showShade: boolean
   optimalRoute: RouteResponse | null
   shadeRoute: RouteResponse | null
   isLoading: boolean
@@ -18,7 +20,7 @@ interface RouteStore {
 
   setStartLocation: (location: Location | null) => void
   setEndLocation: (location: Location | null) => void
-  setSelectedRoute: (route: RouteType) => void
+  toggleRoute: (route: RouteType) => void
   setOptimalRoute: (route: RouteResponse | null) => void
   setShadeRoute: (route: RouteResponse | null) => void
   setIsLoading: (loading: boolean) => void
@@ -34,7 +36,8 @@ interface RouteStore {
 const initialState = {
   startLocation: null,
   endLocation: null,
-  selectedRoute: 'optimal' as const,
+  showOptimal: true,
+  showShade: true,
   optimalRoute: null,
   shadeRoute: null,
   isLoading: false,
@@ -48,13 +51,22 @@ const initialState = {
 
 export const useRouteStore = create<RouteStore>((set) => ({
   ...initialState,
-  // 출발/도착이 바뀌면(재검색, 마커 드래그, 최근검색 클릭) 기존 경로선은 무효
-  // -> 경로선은 오직 경로 버튼을 눌렀을 때만 생긴다
+  // 출발/도착이 바뀌면(재검색, 최근검색 클릭) 기존 경로선은 무효
+  // -> 경로선은 오직 길 찾기 버튼을 눌렀을 때만 생긴다
   setStartLocation: (location) =>
     set({ startLocation: location, optimalRoute: null, shadeRoute: null, error: null }),
   setEndLocation: (location) =>
     set({ endLocation: location, optimalRoute: null, shadeRoute: null, error: null }),
-  setSelectedRoute: (route) => set({ selectedRoute: route }),
+  // 경로 유형 토글 - 마지막 남은 하나는 끌 수 없음 (최소 1개 보장)
+  toggleRoute: (route) =>
+    set((state) => {
+      if (route === 'optimal') {
+        if (state.showOptimal && !state.showShade) return state
+        return { showOptimal: !state.showOptimal }
+      }
+      if (state.showShade && !state.showOptimal) return state
+      return { showShade: !state.showShade }
+    }),
   setOptimalRoute: (route) => set({ optimalRoute: route }),
   setShadeRoute: (route) => set({ shadeRoute: route }),
   setIsLoading: (loading) => set({ isLoading: loading }),

@@ -6,36 +6,33 @@ import { useRoute } from '@/hooks/useRoute'
 import { gaEvent } from '@/utils/analytics'
 
 export function RouteOptionButtons() {
-  const { selectedRoute, setSelectedRoute, isLoading } = useRouteStore()
-  const { fetchRoute } = useRoute()
+  const { showOptimal, showShade, toggleRoute, isLoading } = useRouteStore()
+  const { fetchRoutes } = useRoute()
 
-  const handleOptimalClick = useCallback(async () => {
-    const { startLocation, endLocation } = useRouteStore.getState()
-    // 비교 지표용 (핵심 지표는 shade_route_click)
-    gaEvent('optimal_route_click', {
-      start_name: startLocation?.name ?? '(미선택)',
-      end_name: endLocation?.name ?? '(미선택)',
-    })
+  const handleFindRoute = useCallback(async () => {
+    const { startLocation, endLocation, showOptimal, showShade } =
+      useRouteStore.getState()
 
-    setSelectedRoute('optimal')
-    await fetchRoute('optimal')
-  }, [setSelectedRoute, fetchRoute])
+    // 핵심 측정 지표: 햇빛 피하는 길이 켜진 상태의 길 찾기
+    if (showShade) {
+      gaEvent('shade_route_click', {
+        start_name: startLocation?.name ?? '(미선택)',
+        end_name: endLocation?.name ?? '(미선택)',
+        both_selected: Boolean(startLocation && endLocation),
+      })
+    }
+    if (showOptimal) {
+      gaEvent('optimal_route_click', {
+        start_name: startLocation?.name ?? '(미선택)',
+        end_name: endLocation?.name ?? '(미선택)',
+      })
+    }
 
-  const handleShadeClick = useCallback(async () => {
-    const { startLocation, endLocation } = useRouteStore.getState()
-    // 핵심 측정 지표: 햇빛 피하는 길 버튼 클릭
-    gaEvent('shade_route_click', {
-      start_name: startLocation?.name ?? '(미선택)',
-      end_name: endLocation?.name ?? '(미선택)',
-      both_selected: Boolean(startLocation && endLocation),
-    })
+    await fetchRoutes()
 
-    setSelectedRoute('shade')
-    await fetchRoute('shade')
-
-    // 결과 지표: 실제로 그늘 경로가 나왔을 때 점수/거리 기록
+    // 결과 지표: 그늘 경로가 조회됐을 때 점수/거리 기록
     const { shadeRoute } = useRouteStore.getState()
-    if (shadeRoute) {
+    if (showShade && shadeRoute) {
       gaEvent('shade_route_result', {
         shade_score: shadeRoute.shadeScore ?? 0,
         distance_m: shadeRoute.distance,
@@ -44,40 +41,57 @@ export function RouteOptionButtons() {
         via: shadeRoute.shadeDetail?.via ?? '(없음)',
       })
     }
-  }, [setSelectedRoute, fetchRoute])
+  }, [fetchRoutes])
 
-  const pillBase =
-    'h-[44px] px-4 rounded-full text-[15px] tracking-[-0.2px] transition active:scale-95 disabled:active:scale-100'
+  const chipBase =
+    'h-[40px] px-3 rounded-full text-[14px] tracking-[-0.2px] transition active:scale-95 border'
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-3">
+      {/* 경로 유형 토글 - 둘 다 켤 수 있음, 최소 1개는 항상 활성 */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => toggleRoute('optimal')}
+          className={`${chipBase} ${
+            showOptimal
+              ? 'bg-[#1D4ED8] text-white border-[#1D4ED8] font-semibold'
+              : 'bg-white text-[#86868b] border-black/[0.08]'
+          }`}
+          aria-pressed={showOptimal}
+          aria-label="최적의 길 표시 토글"
+        >
+          {showOptimal ? '✓ ' : ''}최적의 길
+        </button>
+
+        <button
+          onClick={() => toggleRoute('shade')}
+          className={`${chipBase} ${
+            showShade
+              ? 'bg-[#059669] text-white border-[#059669] font-semibold'
+              : 'bg-white text-[#86868b] border-black/[0.08]'
+          }`}
+          aria-pressed={showShade}
+          aria-label="햇빛 피하는 길 표시 토글"
+        >
+          {showShade ? '✓ ' : ''}햇빛 피하는 길
+        </button>
+      </div>
+
+      {/* 길 찾기 실행 버튼 */}
       <button
-        onClick={handleOptimalClick}
+        onClick={handleFindRoute}
         disabled={isLoading}
-        className={`${pillBase} ${
-          selectedRoute === 'optimal'
-            ? 'bg-[#0066cc] text-white font-semibold'
-            : 'bg-white text-[#0066cc] border border-[#0066cc]'
-        }`}
-        aria-label="최적의 길 추천"
-        aria-pressed={selectedRoute === 'optimal'}
+        className="w-full h-[44px] bg-[#0066cc] text-white text-[15px] tracking-[-0.2px] rounded-full transition active:scale-95 disabled:active:scale-100"
+        style={{ fontWeight: 600 }}
+        aria-label="길 찾기"
       >
-        최적의 길
+        {isLoading ? '경로 찾는 중...' : '길 찾기'}
       </button>
 
-      <button
-        onClick={handleShadeClick}
-        disabled={isLoading}
-        className={`${pillBase} ${
-          selectedRoute === 'shade'
-            ? 'bg-[#0066cc] text-white font-semibold'
-            : 'bg-white text-[#0066cc] border border-[#0066cc]'
-        }`}
-        aria-label="햇빛을 피하는 길 추천"
-        aria-pressed={selectedRoute === 'shade'}
-      >
-        햇빛 피하는 길
-      </button>
+      <p className="text-[11px] text-[#86868b] tracking-[-0.12px]">
+        경로 색상: <span className="text-[#1D4ED8]">파랑=최적</span> ·{' '}
+        <span className="text-[#059669]">초록=햇빛 회피</span>
+      </p>
     </div>
   )
 }

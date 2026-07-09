@@ -95,7 +95,8 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     endLocation,
     optimalRoute,
     shadeRoute,
-    selectedRoute,
+    showOptimal,
+    showShade,
     boundary,
     setBoundary,
     sunlightTime,
@@ -295,51 +296,55 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     }
   }, [startLocation, endLocation, isLoading])
 
-  // 경로선 표시 (흰색 테두리 + 본선 이중 구조로 가시성 확보)
+  // 경로선 표시 - 두 경로를 동시에 렌더 가능 (파랑=최적, 초록=햇빛 회피)
   // sunlightTime 의존성: 일조량 오버레이가 새로 깔린 뒤 경로선을 다시 그려
   // 선이 항상 이미지 위에 보이도록 유지
   useEffect(() => {
     const Tmapv2 = window.Tmapv2
     if (!mapRef.current || !Tmapv2 || isLoading) return
 
-    const route: RouteResponse | null =
-      selectedRoute === 'optimal' ? optimalRoute : shadeRoute
-
     // 기존 경로선 제거
     polylinesRef.current.forEach((line) => line.setMap(null))
     polylinesRef.current = []
 
-    if (!route || route.path.length === 0) return
+    const visible: Array<{ route: RouteResponse; color: string }> = []
+    if (showOptimal && optimalRoute && optimalRoute.path.length > 0) {
+      visible.push({ route: optimalRoute, color: '#1D4ED8' })
+    }
+    if (showShade && shadeRoute && shadeRoute.path.length > 0) {
+      visible.push({ route: shadeRoute, color: '#059669' })
+    }
+    if (visible.length === 0) return
 
-    const latLngPath = route.path.map(
-      (coord) => new Tmapv2.LatLng(coord[1], coord[0])
-    )
-
-    const mainColor = selectedRoute === 'optimal' ? '#1D4ED8' : '#059669'
-
-    // 아래층: 흰색 굵은 테두리선 (배경 지도와 분리)
-    const casing = new Tmapv2.Polyline({
-      path: latLngPath,
-      strokeColor: '#FFFFFF',
-      strokeWeight: 12,
-      map: mapRef.current,
-    })
-
-    // 위층: 본선
-    const mainLine = new Tmapv2.Polyline({
-      path: latLngPath,
-      strokeColor: mainColor,
-      strokeWeight: 7,
-      map: mapRef.current,
-    })
-
-    polylinesRef.current = [casing, mainLine]
-
-    // 경로 전체가 보이도록 화면 맞춤
     const bounds = new Tmapv2.LatLngBounds()
-    latLngPath.forEach((latlng) => bounds.extend(latlng))
+
+    for (const { route, color } of visible) {
+      const latLngPath = route.path.map(
+        (coord) => new Tmapv2.LatLng(coord[1], coord[0])
+      )
+
+      // 아래층: 흰색 굵은 테두리선 (배경 지도와 분리)
+      const casing = new Tmapv2.Polyline({
+        path: latLngPath,
+        strokeColor: '#FFFFFF',
+        strokeWeight: 12,
+        map: mapRef.current,
+      })
+      // 위층: 본선
+      const mainLine = new Tmapv2.Polyline({
+        path: latLngPath,
+        strokeColor: color,
+        strokeWeight: 7,
+        map: mapRef.current,
+      })
+      polylinesRef.current.push(casing, mainLine)
+
+      latLngPath.forEach((latlng) => bounds.extend(latlng))
+    }
+
+    // 표시된 경로 전체가 보이도록 화면 맞춤
     mapRef.current.fitBounds(bounds)
-  }, [optimalRoute, shadeRoute, selectedRoute, isLoading, sunlightTime])
+  }, [optimalRoute, shadeRoute, showOptimal, showShade, isLoading, sunlightTime])
 
   return (
     <div className="relative w-full h-full">
