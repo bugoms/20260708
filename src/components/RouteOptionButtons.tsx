@@ -11,13 +11,14 @@ export function RouteOptionButtons() {
     showShade,
     toggleRoute,
     isLoading,
-    startLocation,
-    endLocation,
+    optimalRoute,
+    shadeRoute,
   } = useRouteStore()
   const { fetchRoutes } = useRoute()
 
-  // 출발지/도착지가 모두 입력돼야 경로 유형 선택 가능
-  const locationsReady = Boolean(startLocation && endLocation)
+  // 길 찾기를 실행해 경로가 로드된 뒤에야 토글 가능
+  // (출발/도착이 바뀌면 store가 경로를 비우므로 자동으로 다시 disabled)
+  const chipsEnabled = optimalRoute !== null || shadeRoute !== null
 
   const handleFindRoute = useCallback(async () => {
     const { startLocation, endLocation, showOptimal, showShade } =
@@ -62,11 +63,13 @@ export function RouteOptionButtons() {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => toggleRoute('optimal')}
-          disabled={!locationsReady}
+          disabled={!chipsEnabled}
           className={`${chipBase} ${
-            showOptimal
-              ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
-              : 'bg-white text-[#1d1d1f] border-black/[0.08]'
+            !chipsEnabled
+              ? 'bg-white text-[#a1a1a6] border-black/[0.08]'
+              : showOptimal
+                ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+                : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showOptimal}
           aria-label="최적의 길 표시 토글"
@@ -76,11 +79,13 @@ export function RouteOptionButtons() {
 
         <button
           onClick={() => toggleRoute('shade')}
-          disabled={!locationsReady}
+          disabled={!chipsEnabled}
           className={`${chipBase} ${
-            showShade
-              ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
-              : 'bg-white text-[#1d1d1f] border-black/[0.08]'
+            !chipsEnabled
+              ? 'bg-white text-[#a1a1a6] border-black/[0.08]'
+              : showShade
+                ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+                : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showShade}
           aria-label="햇빛 피하는 길 표시 토글"
