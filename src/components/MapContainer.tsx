@@ -51,6 +51,11 @@ interface Tmapv2Static {
   Polygon: new (options: Record<string, unknown>) => TmapPolygon
   GroundOverlay: new (options: Record<string, unknown>) => TmapGroundOverlay
   LatLngBounds: new () => TmapBounds
+  base?: {
+    Config?: {
+      getMapVersion?: () => string
+    }
+  }
 }
 
 declare global {
@@ -119,6 +124,12 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
           height: '100%',
           zoom: 16,
         })
+
+        // 위성 전환용 버전 조회 URL을 same-origin 프록시로 교체
+        // (원본 topopentile 서버는 CORS 미지원이라 브라우저에서 XHR 차단됨)
+        if (Tmapv2.base?.Config?.getMapVersion) {
+          Tmapv2.base.Config.getMapVersion = () => '/api/tms-version'
+        }
 
         mapRef.current = map
         setIsLoading(false)
