@@ -187,15 +187,8 @@ function LocationField({
                       outside ? 'opacity-55' : ''
                     }`}
                   >
-                    <span className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] truncate">
-                        {poi.name}
-                      </span>
-                      {outside && (
-                        <span className="shrink-0 text-[10px] text-[#b64400] bg-[#fff2ec] border border-[#f5d5c5] rounded-full px-1.5 py-px">
-                          구역 밖
-                        </span>
-                      )}
+                    <span className="block text-[14px] font-semibold text-[#1d1d1f] tracking-[-0.224px] truncate">
+                      {poi.name}
                     </span>
                     <span className="block text-[12px] text-[#86868b] tracking-[-0.12px] truncate">
                       {poi.address}

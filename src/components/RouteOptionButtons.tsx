@@ -6,8 +6,18 @@ import { useRoute } from '@/hooks/useRoute'
 import { gaEvent } from '@/utils/analytics'
 
 export function RouteOptionButtons() {
-  const { showOptimal, showShade, toggleRoute, isLoading } = useRouteStore()
+  const {
+    showOptimal,
+    showShade,
+    toggleRoute,
+    isLoading,
+    startLocation,
+    endLocation,
+  } = useRouteStore()
   const { fetchRoutes } = useRoute()
+
+  // 출발지/도착지가 모두 입력돼야 경로 유형 선택 가능
+  const locationsReady = Boolean(startLocation && endLocation)
 
   const handleFindRoute = useCallback(async () => {
     const { startLocation, endLocation, showOptimal, showShade } =
@@ -52,28 +62,30 @@ export function RouteOptionButtons() {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => toggleRoute('optimal')}
+          disabled={!locationsReady}
           className={`${chipBase} ${
             showOptimal
-              ? 'bg-[#1D4ED8] text-white border-[#1D4ED8] font-semibold'
-              : 'bg-white text-[#86868b] border-black/[0.08]'
+              ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+              : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showOptimal}
           aria-label="최적의 길 표시 토글"
         >
-          {showOptimal ? '✓ ' : ''}최적의 길
+          최적의 길
         </button>
 
         <button
           onClick={() => toggleRoute('shade')}
+          disabled={!locationsReady}
           className={`${chipBase} ${
             showShade
-              ? 'bg-[#059669] text-white border-[#059669] font-semibold'
-              : 'bg-white text-[#86868b] border-black/[0.08]'
+              ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+              : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showShade}
           aria-label="햇빛 피하는 길 표시 토글"
         >
-          {showShade ? '✓ ' : ''}햇빛 피하는 길
+          햇빛 피하는 길
         </button>
       </div>
 
