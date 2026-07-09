@@ -5,19 +5,24 @@ import { useRouteStore } from '@/store/routeStore'
 import { pointInPolygon } from '@/utils/geo'
 import type { Location, PoiResult } from '@/types/route'
 
-/** 좌표가 서비스 구역(역삼동) 안인지 판정. 경계 미로드 시 통과 */
+/**
+ * POI가 서비스 구역(역삼동) 안인지 판정.
+ * 경계 폴리곤이 로드됐으면 좌표 기반, 미로드(Overpass 장애 등) 시엔
+ * 주소 문자열 기반으로 폴백 - 어떤 경우에도 구역 밖이 통과되지 않게.
+ */
 function isInServiceArea(
-  lat: number,
-  lng: number,
+  poi: { lat: number; lng: number; address: string },
   boundary: Array<Array<[number, number]>> | null
 ): boolean {
-  if (!boundary || boundary.length === 0) return true
-  return boundary.some((ring) =>
-    pointInPolygon(
-      { lat, lng },
-      ring.map((c) => ({ lat: c[1], lng: c[0] }))
+  if (boundary && boundary.length > 0) {
+    return boundary.some((ring) =>
+      pointInPolygon(
+        { lat: poi.lat, lng: poi.lng },
+        ring.map((c) => ({ lat: c[1], lng: c[0] }))
+      )
     )
-  )
+  }
+  return poi.address.includes('역삼동')
 }
 
 interface LocationFieldProps {
@@ -103,7 +108,7 @@ function LocationField({
   const handlePick = useCallback(
     (poi: PoiResult) => {
       // 서비스 구역(역삼동) 밖이면 선택을 막고 경고창 표시
-      if (!isInServiceArea(poi.lat, poi.lng, boundary)) {
+      if (!isInServiceArea(poi, boundary)) {
         setAreaAlert(
           `'${poi.name}'은(는) 역삼동을 벗어난 장소예요. 역삼동 안의 장소를 선택해주세요.`
         )

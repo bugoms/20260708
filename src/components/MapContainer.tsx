@@ -160,11 +160,12 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
   }, [isSatellite, isLoading])
 
   // 역삼동 행정 경계 로드 (최초 1회)
+  // 정적 파일(행정안전부 행정동 경계 기반) - 외부 API 의존 없이 항상 즉시 로드됨
   useEffect(() => {
     if (boundary) return
     let cancelled = false
 
-    fetch('/api/boundary')
+    fetch('/boundary.json')
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { rings?: Array<Array<[number, number]>> } | null) => {
         if (!cancelled && data?.rings && data.rings.length > 0) {
@@ -172,7 +173,7 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         }
       })
       .catch(() => {
-        // 경계 로드 실패 시 표시/검증만 생략 (서비스는 정상 동작)
+        // 로드 실패 시에도 SearchBar가 주소 기반 검증으로 폴백함
       })
 
     return () => {
