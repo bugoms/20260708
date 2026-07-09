@@ -2,27 +2,17 @@
 
 import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { useRouteStore } from '@/store/routeStore'
-import { pointInPolygon } from '@/utils/geo'
+import { isInYeoksam } from '@/utils/serviceArea'
 import type { Location, PoiResult } from '@/types/route'
 
 /**
- * POI가 서비스 구역(역삼동) 안인지 판정.
- * 경계 폴리곤이 로드됐으면 좌표 기반, 미로드(Overpass 장애 등) 시엔
- * 주소 문자열 기반으로 폴백 - 어떤 경우에도 구역 밖이 통과되지 않게.
+ * POI가 서비스 구역(역삼동) 밖인지 판정.
+ * 서버가 계산한 outside 플래그 우선, 없으면 번들에 포함된
+ * 경계 데이터로 직접 판정 - 로드 타이밍과 무관하게 항상 정확.
  */
-function isInServiceArea(
-  poi: { lat: number; lng: number; address: string },
-  boundary: Array<Array<[number, number]>> | null
-): boolean {
-  if (boundary && boundary.length > 0) {
-    return boundary.some((ring) =>
-      pointInPolygon(
-        { lat: poi.lat, lng: poi.lng },
-        ring.map((c) => ({ lat: c[1], lng: c[0] }))
-      )
-    )
-  }
-  return poi.address.includes('역삼동')
+function isOutsideServiceArea(poi: PoiResult): boolean {
+  if (typeof poi.outside === 'boolean') return poi.outside
+  return !isInYeoksam(poi.lat, poi.lng)
 }
 
 interface LocationFieldProps {
@@ -45,7 +35,7 @@ function LocationField({
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { boundary, setAreaAlert } = useRouteStore()
+  const { setAreaAlert } = useRouteStore()
 
   // 외부에서 위치가 설정되면(최근 검색 클릭 등) 입력창 동기화
   useEffect(() => {
@@ -108,7 +98,7 @@ function LocationField({
   const handlePick = useCallback(
     (poi: PoiResult) => {
       // 서비스 구역(역삼동) 밖이면 선택을 막고 경고창 표시
-      if (!isInServiceArea(poi, boundary)) {
+      if (isOutsideServiceArea(poi)) {
         setAreaAlert(
           `'${poi.name}'은(는) 역삼동을 벗어난 장소예요. 역삼동 안의 장소를 선택해주세요.`
         )
@@ -121,7 +111,7 @@ function LocationField({
       setIsOpen(false)
       onSelect({ name: poi.name, lat: poi.lat, lng: poi.lng })
     },
-    [onSelect, boundary, setAreaAlert]
+    [onSelect, setAreaAlert]
   )
 
   // 바깥 클릭 시 드롭다운 닫기
@@ -177,7 +167,7 @@ function LocationField({
             </li>
           ) : (
             results.map((poi, index) => {
-              const outside = !isInServiceArea(poi, boundary)
+              const outside = isOutsideServiceArea(poi)
               return (
                 <li key={`${poi.name}-${index}`}>
                   <button

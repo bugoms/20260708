@@ -1,4 +1,5 @@
 import type { PoiResult } from '@/types/route'
+import { isInYeoksam } from '@/utils/serviceArea'
 
 interface TmapPoi {
   name: string
@@ -119,15 +120,17 @@ export async function GET(request: Request) {
     // (숨기면 '논현역' 검색 시 유사한 역삼동 장소만 보여 사용자가 혼란)
     // 정렬: 1) 검색어-이름 매칭 2) 역삼동 우선. 선택 시 클라이언트가
     // 구역 밖이면 경고창으로 안내한다.
+    // 구역 밖 여부를 서버에서 확정 계산 (클라이언트 경계 로드 타이밍과 무관)
     const normalized = keyword.replace(/\s/g, '')
-    const results = merged.slice(0, 10)
+    const results = merged.slice(0, 10).map((poi) => ({
+      ...poi,
+      outside: !isInYeoksam(poi.lat, poi.lng),
+    }))
     results.sort((a, b) => {
       const aMatch = a.name.replace(/\s/g, '').includes(normalized) ? 0 : 1
       const bMatch = b.name.replace(/\s/g, '').includes(normalized) ? 0 : 1
       if (aMatch !== bMatch) return aMatch - bMatch
-      const aIn = a.address.includes('역삼동') ? 0 : 1
-      const bIn = b.address.includes('역삼동') ? 0 : 1
-      return aIn - bIn
+      return (a.outside ? 1 : 0) - (b.outside ? 1 : 0)
     })
 
     return Response.json(

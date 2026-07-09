@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouteStore } from '@/store/routeStore'
+import { YEOKSAM_RINGS } from '@/utils/serviceArea'
 import type { RouteResponse } from '@/types/route'
 
 interface TmapLatLng {
@@ -160,25 +161,11 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     mapRef.current.setMapType(isSatellite ? 5 : 1)
   }, [isSatellite, isLoading])
 
-  // 역삼동 행정 경계 로드 (최초 1회)
-  // 정적 파일(행정안전부 행정동 경계 기반) - 외부 API 의존 없이 항상 즉시 로드됨
+  // 역삼동 행정 경계 - 번들에 포함된 데이터를 즉시 스토어에 반영
+  // (네트워크 로드가 없으므로 타이밍/실패 문제가 원천적으로 없음)
   useEffect(() => {
-    if (boundary) return
-    let cancelled = false
-
-    fetch('/boundary.json')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { rings?: Array<Array<[number, number]>> } | null) => {
-        if (!cancelled && data?.rings && data.rings.length > 0) {
-          setBoundary(data.rings)
-        }
-      })
-      .catch(() => {
-        // 로드 실패 시에도 SearchBar가 주소 기반 검증으로 폴백함
-      })
-
-    return () => {
-      cancelled = true
+    if (!boundary) {
+      setBoundary(YEOKSAM_RINGS)
     }
   }, [boundary, setBoundary])
 

@@ -9,6 +9,7 @@ export interface PoiResult {
   lat: number
   lng: number
   address: string
+  outside?: boolean // 서비스 구역(역삼동) 밖 여부 - 서버에서 계산
 }
 
 export interface RouteResponse {
