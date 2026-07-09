@@ -12,7 +12,7 @@ function PanelContent() {
     <div className="flex flex-col min-h-full">
       <h1
         className="text-[21px] text-[#1d1d1f] tracking-[-0.3px] mb-6"
-        style={{ fontWeight: 600 }}
+        style={{ fontWeight: 700 }}
       >
         길 찾기
       </h1>
