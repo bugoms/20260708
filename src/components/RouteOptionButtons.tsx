@@ -68,7 +68,7 @@ export function RouteOptionButtons() {
             !chipsEnabled
               ? 'bg-white text-[#a1a1a6] border-black/[0.08]'
               : showOptimal
-                ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+                ? 'bg-[#E5F0FA] text-[#0066cc] border-transparent font-semibold'
                 : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showOptimal}
@@ -84,7 +84,7 @@ export function RouteOptionButtons() {
             !chipsEnabled
               ? 'bg-white text-[#a1a1a6] border-black/[0.08]'
               : showShade
-                ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] font-semibold'
+                ? 'bg-[#E5F0FA] text-[#0066cc] border-transparent font-semibold'
                 : 'bg-white text-[#1d1d1f] border-black/[0.08]'
           }`}
           aria-pressed={showShade}
