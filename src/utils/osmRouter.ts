@@ -32,6 +32,10 @@ const BUILDING_FILTER_RADIUS_M = 80
 // 단, 횡단보도 지점(crossing 노드)이 있는 구간은 정상 비용 -> 차도 횡단은 횡단보도로 유도.
 // primary/secondary 대로는 아예 그래프에서 제외되어(overpass.ts) 보도+횡단보도로만 이동.
 const BIG_ROAD_PENALTY = 1.5
+// 대로 센터라인 노드(교차로)를 횡단보도 아닌 지점에서 통과 = 무단횡단 -> 강한 페널티
+const ILLEGAL_CROSS_PENALTY = 3.0
+// 횡단보도 구간(footway=crossing) 우대 - 경로가 횡단보도로 꺾이도록
+const CROSSWALK_BONUS = 0.85
 
 interface Edge {
   to: number
@@ -252,22 +256,40 @@ export function routeWithShade(
         lng: (a.lng + b.lng) / 2,
       }
 
-      const shade = isDaytime
-        ? shadeFactorAt(mid, walk, buildingIndex, sun.azimuth, tanAlt)
-        : 0
-      const avoid = isNearOptimal(mid, avoidCells, optimalSamples)
-        ? avoidPenalty
-        : 1
+      let cost: number
 
-      // 차도 페널티: tertiary는 횡단보도 지점을 포함한 구간만 정상 비용
-      let roadPenalty = 1
-      if (way.highway === 'tertiary') {
-        const touchesCrossing =
-          walk.crossingNodeIds.has(aId) || walk.crossingNodeIds.has(bId)
-        if (!touchesCrossing) roadPenalty = BIG_ROAD_PENALTY
+      if (way.isCrossing) {
+        // 횡단보도 구간: 우대 비용, 그늘/회피 페널티 미적용
+        // (대로를 건너는 유일하게 올바른 통로이므로 항상 매력적이어야 함)
+        cost = length * CROSSWALK_BONUS
+      } else {
+        const shade = isDaytime
+          ? shadeFactorAt(mid, walk, buildingIndex, sun.azimuth, tanAlt)
+          : 0
+        const avoid = isNearOptimal(mid, avoidCells, optimalSamples)
+          ? avoidPenalty
+          : 1
+
+        // 차도 페널티
+        let roadPenalty = 1
+
+        // 대로(primary/secondary) 센터라인 노드를 횡단보도 아닌 지점에서
+        // 지나는 엣지 = 교차로 무단횡단 -> 강한 페널티로 횡단보도로 유도
+        const touchesMajorRoad =
+          (walk.majorRoadNodeIds.has(aId) && !walk.crossingNodeIds.has(aId)) ||
+          (walk.majorRoadNodeIds.has(bId) && !walk.crossingNodeIds.has(bId))
+
+        if (touchesMajorRoad) {
+          roadPenalty = ILLEGAL_CROSS_PENALTY
+        } else if (way.highway === 'tertiary') {
+          // tertiary는 횡단보도 지점을 포함한 구간만 정상 비용
+          const touchesCrossing =
+            walk.crossingNodeIds.has(aId) || walk.crossingNodeIds.has(bId)
+          if (!touchesCrossing) roadPenalty = BIG_ROAD_PENALTY
+        }
+
+        cost = length * (1 - SHADE_WEIGHT * shade) * avoid * roadPenalty
       }
-
-      const cost = length * (1 - SHADE_WEIGHT * shade) * avoid * roadPenalty
 
       addEdge(aId, bId, length, cost)
       addEdge(bId, aId, length, cost)

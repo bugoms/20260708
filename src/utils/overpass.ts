@@ -31,6 +31,7 @@ export interface WalkData extends AreaData {
   ways: WalkWay[]
   nodes: Map<number, Point> // OSM 노드 id -> 좌표
   crossingNodeIds: Set<number> // 횡단보도 지점(highway=crossing) 노드 id
+  majorRoadNodeIds: Set<number> // 대로(primary/secondary) 센터라인 노드 id - 무단횡단 감지용
 }
 
 interface OverpassElement {
@@ -196,6 +197,8 @@ node(w.roads);
 out skel qt;
 node["highway"="crossing"](${bboxStr});
 out body;
+way["highway"~"^(primary|secondary|primary_link|secondary_link|trunk)$"](${bboxStr});
+out body;
 (
   way["building"](${bboxStr});
   way["leisure"="park"](${bboxStr});
@@ -205,9 +208,18 @@ out tags geom;
 
   const json = await runOverpassQuery(query)
 
+  const MAJOR_ROADS = new Set([
+    'primary',
+    'secondary',
+    'primary_link',
+    'secondary_link',
+    'trunk',
+  ])
+
   const ways: WalkWay[] = []
   const nodes = new Map<number, Point>()
   const crossingNodeIds = new Set<number>()
+  const majorRoadNodeIds = new Set<number>()
   const areaElements: OverpassElement[] = []
 
   for (const el of json.elements) {
@@ -217,18 +229,32 @@ out tags geom;
         crossingNodeIds.add(el.id)
       }
     } else if (el.type === 'way' && el.tags?.['highway'] && el.nodes) {
-      ways.push({
-        nodeIds: el.nodes,
-        highway: el.tags['highway'],
-        isCrossing: el.tags['footway'] === 'crossing',
-      })
+      if (MAJOR_ROADS.has(el.tags['highway'])) {
+        // 대로 센터라인 - 보행 그래프에는 넣지 않고 교차 노드만 기록
+        // (작은 도로가 대로와 만나는 노드를 지나며 대로를 건너는 것 = 무단횡단 감지)
+        for (const nodeId of el.nodes) {
+          majorRoadNodeIds.add(nodeId)
+        }
+      } else {
+        ways.push({
+          nodeIds: el.nodes,
+          highway: el.tags['highway'],
+          isCrossing: el.tags['footway'] === 'crossing',
+        })
+      }
     } else if (el.type === 'way' && el.geometry) {
       areaElements.push(el)
     }
   }
 
   const area = parseBuildingsAndParks(areaElements)
-  const data: WalkData = { ...area, ways, nodes, crossingNodeIds }
+  const data: WalkData = {
+    ...area,
+    ways,
+    nodes,
+    crossingNodeIds,
+    majorRoadNodeIds,
+  }
   walkCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS })
   return data
 }
