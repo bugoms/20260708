@@ -45,8 +45,12 @@ const initialState = {
 
 export const useRouteStore = create<RouteStore>((set) => ({
   ...initialState,
-  setStartLocation: (location) => set({ startLocation: location }),
-  setEndLocation: (location) => set({ endLocation: location }),
+  // 출발/도착이 바뀌면(재검색, 마커 드래그, 최근검색 클릭) 기존 경로선은 무효
+  // -> 경로선은 오직 경로 버튼을 눌렀을 때만 생긴다
+  setStartLocation: (location) =>
+    set({ startLocation: location, optimalRoute: null, shadeRoute: null, error: null }),
+  setEndLocation: (location) =>
+    set({ endLocation: location, optimalRoute: null, shadeRoute: null, error: null }),
   setSelectedRoute: (route) => set({ selectedRoute: route }),
   setOptimalRoute: (route) => set({ optimalRoute: route }),
   setShadeRoute: (route) => set({ shadeRoute: route }),

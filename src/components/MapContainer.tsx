@@ -88,8 +88,6 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     setBoundary,
     setStartLocation,
     setEndLocation,
-    setOptimalRoute,
-    setShadeRoute,
     setAreaAlert,
   } = useRouteStore()
 
@@ -198,8 +196,9 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
     markersRef.current.forEach((marker) => marker.setMap(null))
     markersRef.current = []
 
-    // 마커 드래그 종료 처리: 경계 검증 후 위치 갱신 + 기존 경로 무효화
-    const handleDragEnd = (
+    // 마커 드래그 종료 처리: 경계 검증 -> 역지오코딩 주소를 입력값에 자동 반영
+    // (위치 setter가 기존 경로선을 자동 제거함 - 선은 버튼 클릭 시에만 생성)
+    const handleDragEnd = async (
       marker: TmapMarker,
       kind: 'start' | 'end',
       original: { lat: number; lng: number }
@@ -216,14 +215,23 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         return
       }
 
-      // 위치가 바뀌었으므로 기존 경로는 무효
-      setOptimalRoute(null)
-      setShadeRoute(null)
+      // 역지오코딩으로 실제 주소를 가져와 입력값으로 사용
+      let name =
+        kind === 'start' ? '지도에서 지정한 출발지' : '지도에서 지정한 도착지'
+      try {
+        const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`)
+        if (res.ok) {
+          const data = (await res.json()) as { name?: string }
+          if (data.name) name = data.name
+        }
+      } catch {
+        // 주소 조회 실패 시 기본 이름 사용
+      }
 
       if (kind === 'start') {
-        setStartLocation({ name: '지도에서 지정한 출발지', lat, lng })
+        setStartLocation({ name, lat, lng })
       } else {
-        setEndLocation({ name: '지도에서 지정한 도착지', lat, lng })
+        setEndLocation({ name, lat, lng })
       }
     }
 

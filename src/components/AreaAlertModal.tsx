@@ -37,19 +37,23 @@ export function AreaAlertModal() {
       aria-label="서비스 구역 안내"
     >
       <div
-        className="absolute inset-0 bg-black/30"
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
         onClick={() => setAreaAlert(null)}
       ></div>
-      <div className="relative w-full max-w-[320px] bg-white rounded-[18px] border border-[#e0e0e0] p-6 text-center">
-        <p className="text-[17px] font-semibold text-[#1d1d1f] tracking-[-0.374px] mb-2">
+      <div className="relative w-full max-w-[300px] bg-white rounded-[18px] p-6 pt-7 text-center shadow-[0_16px_48px_rgba(0,0,0,0.18)]">
+        <p
+          className="text-[17px] text-[#1d1d1f] tracking-[-0.374px] leading-[1.24] mb-2"
+          style={{ fontWeight: 600 }}
+        >
           서비스 구역 밖이에요
         </p>
-        <p className="text-[14px] text-[#86868b] tracking-[-0.224px] leading-[1.43] mb-5">
+        <p className="text-[14px] text-[#86868b] tracking-[-0.224px] leading-[1.43] mb-6">
           {areaAlert}
         </p>
         <button
           onClick={() => setAreaAlert(null)}
-          className="w-full h-[44px] bg-[#0066cc] text-white text-[15px] font-semibold tracking-[-0.2px] rounded-full active:scale-95 transition"
+          className="w-full h-[44px] bg-[#0066cc] text-white text-[15px] tracking-[-0.2px] rounded-full active:scale-95 transition"
+          style={{ fontWeight: 600 }}
         >
           확인
         </button>
