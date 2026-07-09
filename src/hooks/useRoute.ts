@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useRouteStore } from '@/store/routeStore'
 import { getTmapRoute } from '@/utils/tmapService'
 import { saveRecentSearch } from '@/utils/recentSearches'
@@ -14,6 +14,10 @@ export function useRoute() {
     setRecentSearches,
   } = useRouteStore()
 
+  // 요청 순번 - 길 찾기 연타 시 늦게 도착한 이전 응답이
+  // 최신 결과를 덮어쓰지 않도록 최신 요청만 반영한다
+  const requestSeq = useRef(0)
+
   /** 길 찾기: 최적/그늘 경로를 병렬로 모두 조회 */
   const fetchRoutes = useCallback(async () => {
     if (!startLocation || !endLocation) {
@@ -21,6 +25,7 @@ export function useRoute() {
       return
     }
 
+    const seq = ++requestSeq.current
     setIsLoading(true)
     setError(null)
 
@@ -41,6 +46,8 @@ export function useRoute() {
           'shade'
         ),
       ])
+
+      if (seq !== requestSeq.current) return // 더 새로운 요청이 진행 중
 
       if (optimalResult.status === 'fulfilled') {
         setOptimalRoute(optimalResult.value)
@@ -63,13 +70,14 @@ export function useRoute() {
       // 검색 성공 시 최근 기록에 저장
       setRecentSearches(saveRecentSearch(startLocation, endLocation))
     } catch (error: unknown) {
+      if (seq !== requestSeq.current) return
       const message =
         error instanceof Error
           ? error.message
           : '경로를 불러오는 중 오류가 발생했습니다.'
       setError(message)
     } finally {
-      setIsLoading(false)
+      if (seq === requestSeq.current) setIsLoading(false)
     }
   }, [
     startLocation,

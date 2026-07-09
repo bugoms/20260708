@@ -60,7 +60,8 @@
 
 역삼동 관문 3개 역(신논현역·선정릉역·선릉역)의 지하보도망을 경로 그래프에 통합:
 
-- **데이터**: `src/data/underground.json` — 출입구 26곳은 OSM `railway=subway_entrance` 실측 좌표, 내부 통로·엘리베이터는 역 구내 안내도 기반
+- **데이터**: `src/data/underground.json` — 출입구 26곳은 OSM `railway=subway_entrance` 실측 좌표, 내부 통로는 역 구내 안내도 기반
+- **출입구 통행 원칙**: 지하 진출입은 실측 좌표가 있는 출입구(entrance)로만 허용. 안내도의 엘리베이터는 실측 좌표가 없어(차도 위로 추정될 위험) 통행 지점에서 제외
 - **주입 방식**: `fetchWalkData`가 OSM 보행 그래프에 지하 노드(음수 id)·엣지를 합성 (`src/utils/underground.ts`)
 - **비용 모델**:
   - 지하 통로 = 완전 그늘 (엣지 비용 45%, 낮에만) → 한낮 대로 구간에서 A\*가 알아서 지하로 꿰어감

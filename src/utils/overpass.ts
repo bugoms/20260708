@@ -96,7 +96,16 @@ async function runOverpassQuery(
         signal: AbortSignal.timeout(6000),
       })
       if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`)
-      return (await response.json()) as { elements: OverpassElement[] }
+      const json = (await response.json()) as {
+        elements: OverpassElement[]
+        remark?: string
+      }
+      // 서버 과부하/타임아웃 시 Overpass는 remark와 함께 "부분 결과"를 반환한다.
+      // 부분 데이터로 그래프를 만들면 요청마다 경로가 달라지므로 실패로 취급.
+      if (json.remark && /timed?[ _-]?out|error/i.test(json.remark)) {
+        throw new Error(`Overpass partial result: ${json.remark}`)
+      }
+      return json
     } catch (error) {
       lastError = error
       // 다음 미러로 폴백

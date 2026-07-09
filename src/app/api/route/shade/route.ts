@@ -35,8 +35,12 @@ interface RawRoute {
 }
 
 const MAX_DETOUR_RATIO = 2.2 // 최적길 대비 그늘길 최대 허용 배율
+const MAX_DETOUR_NO_OPTIMAL = 3.0 // 최적길 없을 때 직선거리 대비 허용 배율
 const SIMILARITY_LIMIT = 0.75 // 최적길과 이 이상 겹치면 회피 강화 재탐색
 const MAX_PARK_DETOUR = 1.6
+// 출발 시각을 10분 단위로 양자화 - 몇 초 간격의 재요청에서 태양 위치가
+// 미세하게 달라져 경로가 흔들리는 것을 방지 (HTTP 캐시 적중률도 상승)
+const TIME_BUCKET_MS = 10 * 60 * 1000
 
 async function callTmap(
   apiKey: string,
@@ -197,7 +201,8 @@ export async function POST(request: Request) {
 
     const start: Point = { lat: startLat, lng: startLng }
     const end: Point = { lat: endLat, lng: endLng }
-    const now = body.departureTime ? new Date(body.departureTime) : new Date()
+    const rawTime = body.departureTime ?? Date.now()
+    const now = new Date(Math.floor(rawTime / TIME_BUCKET_MS) * TIME_BUCKET_MS)
 
     // 최적길(T-Map 추천)과 OSM 보행 데이터를 병렬 로드
     const bbox = bboxWithMargin([start, end], 400)
@@ -210,22 +215,44 @@ export async function POST(request: Request) {
       optimalResult.status === 'fulfilled' ? optimalResult.value : null
 
     // ---------- 1순위: OSM 그늘 가중 라우팅 ----------
-    if (walkResult.status === 'fulfilled' && optimal) {
+    // 최적길(T-Map)이 일시 실패해도 OSM 라우터로 그늘 경로는 항상 같은
+    // 방식으로 생성 -> 요청마다 경로 스타일이 바뀌는 문제 방지
+    if (walkResult.status === 'fulfilled') {
       const walk: WalkData = walkResult.value
 
-      let osmRoute = routeWithShade(walk, start, end, now, optimal.path, 1.4)
+      const detourBudget = optimal
+        ? optimal.distance * MAX_DETOUR_RATIO
+        : distanceMeters(start, end) * MAX_DETOUR_NO_OPTIMAL
 
-      // 최적길과 너무 비슷하면 회피 강화 후 재탐색
-      if (
-        osmRoute &&
-        pathSimilarity(osmRoute.path, optimal.path) > SIMILARITY_LIMIT
-      ) {
-        const retried = routeWithShade(walk, start, end, now, optimal.path, 2.5)
-        if (retried) osmRoute = retried
+      let osmRoute = routeWithShade(
+        walk,
+        start,
+        end,
+        now,
+        optimal?.path ?? [],
+        optimal ? 1.4 : 1.0
+      )
+
+      // 최적길과 너무 비슷하면 회피 강화 후 재탐색.
+      // 단, 재탐색 결과가 우회 예산 안이면서 실제로 덜 겹칠 때만 채택
+      // (예산 초과 결과를 무조건 채택하면 OSM 경로 전체가 버려져
+      //  T-Map 폴백으로 떨어지고, 경로 모양이 요청마다 크게 흔들린다)
+      if (osmRoute && optimal) {
+        const similarity = pathSimilarity(osmRoute.path, optimal.path)
+        if (similarity > SIMILARITY_LIMIT) {
+          const retried = routeWithShade(walk, start, end, now, optimal.path, 2.5)
+          if (
+            retried &&
+            retried.distance <= detourBudget &&
+            pathSimilarity(retried.path, optimal.path) < similarity - 0.1
+          ) {
+            osmRoute = retried
+          }
+        }
       }
 
       // 우회가 과하지 않은 경우에만 채택
-      if (osmRoute && osmRoute.distance <= optimal.distance * MAX_DETOUR_RATIO) {
+      if (osmRoute && osmRoute.distance <= detourBudget) {
         const breakdown = scoreRoute(osmRoute.path, walk, now)
         const crossedParks = parksOnPath(osmRoute.path, walk.parks)
         const namedParks = crossedParks.filter((n) => n !== '공원')

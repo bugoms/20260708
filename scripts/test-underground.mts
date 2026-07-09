@@ -87,6 +87,29 @@ if (via.length === 0) {
   console.warn('⚠ 한낮인데 지하보도를 사용하지 않음 - 비용 파라미터 확인 필요')
 }
 
+// 지하 통행은 반드시 출입구(entrance)를 통해서만:
+// 경로에서 내부(internal) 노드 구간을 찾아 양 끝이 출입구 좌표인지 확인
+const nodeTypeByCoord = new Map<string, string>()
+for (const nw of undergroundData.networks) {
+  for (const nd of nw.nodes) {
+    nodeTypeByCoord.set(`${nd.lat.toFixed(7)}:${nd.lng.toFixed(7)}`, nd.type)
+  }
+}
+const types = route.path.map(
+  ([lng, lat]) => nodeTypeByCoord.get(`${lat.toFixed(7)}:${lng.toFixed(7)}`) ?? null
+)
+for (let i = 0; i < types.length; i++) {
+  if (types[i] !== 'internal') continue
+  let j = i - 1
+  while (j >= 0 && types[j] === 'internal') j--
+  let k = i + 1
+  while (k < types.length && types[k] === 'internal') k++
+  if (j < 0 || types[j] !== 'entrance' || k >= types.length || types[k] !== 'entrance') {
+    throw new Error(`지하 구간(경로 ${i}번째 지점)이 출입구를 거치지 않고 연결됨`)
+  }
+}
+console.log('출입구 통행 OK: 지하 구간 진출입이 모두 출입구 경유')
+
 // 경로가 역삼동 구역을 벗어나지 않는지 (경계 도로 완충 40m 허용)
 const outside = samplePath(route.path, 20).filter(
   (p) => !isInYeoksam(p.lat, p.lng) && distanceToYeoksamBoundary(p) > 40

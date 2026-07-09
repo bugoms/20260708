@@ -113,11 +113,12 @@ export function injectUndergroundNetworks(
       ])
     }
 
-    // 3) 출입구/엘리베이터 <-> 지상 그래프 연결
+    // 3) 출입구 <-> 지상 그래프 연결
+    // 지하 진출입은 실측 좌표가 있는 출입구(entrance) 노드로만 허용한다.
     // 거리순 후보 중, 연결선이 대로 센터라인을 가로지르지 않는 첫 선분에 연결
     // (출입구가 대로 건너편 이면도로에 붙어 무단횡단 지름길이 생기는 것 방지)
     for (const n of network.nodes) {
-      if (n.type === 'internal') continue
+      if (n.type !== 'entrance') continue
       const entrance: Point = { lat: n.lat, lng: n.lng }
 
       const candidates = surfaceSegments
