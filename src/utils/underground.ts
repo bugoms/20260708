@@ -7,7 +7,12 @@
 // 지하 노드는 음수 id를 사용해 OSM 노드 id(양수)와 절대 충돌하지 않는다.
 
 import undergroundData from '@/data/underground.json'
-import { distanceToSegmentMeters, segmentsIntersect, type Point } from './geo'
+import {
+  distanceToSegmentMeters,
+  closestPointOnSegment,
+  segmentsIntersect,
+  type Point,
+} from './geo'
 import type { WalkData } from './overpass'
 
 export interface UndergroundNode {
@@ -37,6 +42,7 @@ interface SurfaceSegment {
   bId: number
   a: Point
   b: Point
+  highway: string
 }
 
 /**
@@ -76,6 +82,7 @@ export function injectUndergroundNetworks(
             bId: way.nodeIds[i],
             a,
             b,
+            highway: way.highway,
           })
         }
       }
@@ -122,15 +129,24 @@ export function injectUndergroundNetworks(
         .sort((x, y) => x.d - y.d)
 
       for (const { seg } of candidates) {
-        const crossesMajorRoad = walk.majorRoadSegments.some(
-          ([ra, rb]) =>
-            segmentsIntersect(entrance, seg.a, ra, rb) ||
-            segmentsIntersect(entrance, seg.b, ra, rb)
+        // 출입구 맞은편 보도 위 투영점 - 실제 진입 기하와 일치
+        const proj = closestPointOnSegment(entrance, seg.a, seg.b)
+        const crossesMajorRoad = walk.majorRoadSegments.some(([ra, rb]) =>
+          segmentsIntersect(entrance, proj, ra, rb)
         )
         if (crossesMajorRoad) continue
 
+        // 보도 선분을 투영점에서 분할 (기존 선분과 평행한 대체 경로로 추가)
+        const splitId = nextId--
+        walk.nodes.set(splitId, proj)
         walk.ways.push({
-          nodeIds: [seg.aId, idMap.get(n.id)!, seg.bId],
+          nodeIds: [seg.aId, splitId, seg.bId],
+          highway: seg.highway,
+          isCrossing: false,
+        })
+        // 출입구 <-> 분할점: 계단 링크 (실거리만큼만 비용 + 계단 페널티)
+        walk.ways.push({
+          nodeIds: [idMap.get(n.id)!, splitId],
           highway: 'underground_access',
           isCrossing: false,
           isEntranceLink: true,

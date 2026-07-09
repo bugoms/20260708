@@ -106,6 +106,24 @@ export function distanceToSegmentMeters(p: Point, a: Point, b: Point): number {
   return Math.sqrt(cx * cx + cy * cy)
 }
 
+/** 점을 선분 a-b 위에 투영한 가장 가까운 점 */
+export function closestPointOnSegment(p: Point, a: Point, b: Point): Point {
+  const mPerLat = 111320
+  const mPerLng = 111320 * Math.cos(p.lat * RAD)
+  const ax = (a.lng - p.lng) * mPerLng
+  const ay = (a.lat - p.lat) * mPerLat
+  const bx = (b.lng - p.lng) * mPerLng
+  const by = (b.lat - p.lat) * mPerLat
+  const dx = bx - ax
+  const dy = by - ay
+  const lenSq = dx * dx + dy * dy
+  const t = lenSq > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lenSq)) : 0
+  return {
+    lat: a.lat + (b.lat - a.lat) * t,
+    lng: a.lng + (b.lng - a.lng) * t,
+  }
+}
+
 /** 두 선분(p1-p2, p3-p4)이 서로 가로지르는지 (끝점 접촉은 제외) */
 export function segmentsIntersect(
   p1: Point,

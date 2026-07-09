@@ -13,6 +13,7 @@ import {
   samplePath,
   type Point,
 } from './geo'
+import { isInYeoksam, distanceToYeoksamBoundary } from './serviceArea'
 import type { WalkData, Building } from './overpass'
 
 export interface OsmRouteResult {
@@ -37,10 +38,14 @@ const ILLEGAL_CROSS_PENALTY = 3.0
 // 횡단보도 구간(footway=crossing) 우대 - 경로가 횡단보도로 꺾이도록
 const CROSSWALK_BONUS = 0.85
 // 지하보도(지하철역 지하 통로): 완전 그늘이라 한낮 대로 구간에서 자연히 선택된다.
-// 출입구 계단 오르내림은 비용 페널티(+35m 상당)와 실제 소요시간(+25초/회)으로 반영
-// -> 그늘 이득이 계단 수고를 넘어설 만큼 긴 구간에서만 지하로 꿰어간다.
-const UNDERGROUND_ENTRANCE_COST_M = 35
+// 출입구 계단 오르내림은 비용 페널티(+20m 상당)와 실제 소요시간(+25초/회)으로 반영
+// -> 완전 노출 구간 약 73m 이상이면 지하로 꿰어가는 손익분기 (0.55 x L > 2 x 20)
+const UNDERGROUND_ENTRANCE_COST_M = 20
 const UNDERGROUND_STAIR_TIME_S = 25
+// 서비스 구역(역삼동) 밖으로 벗어나는 엣지 제외 시 허용 완충 거리.
+// 경계가 도로 센터라인 기준으로 단순화되어 있어, 경계 도로의 보도/횡단보도
+// (센터라인에서 15~25m)는 살리고 구역 밖 블록 관통만 차단한다.
+const OUTSIDE_BOUNDARY_BUFFER_M = 30
 
 interface Edge {
   to: number
@@ -265,6 +270,17 @@ export function routeWithShade(
       const mid: Point = {
         lat: (a.lat + b.lat) / 2,
         lng: (a.lng + b.lng) / 2,
+      }
+
+      // 경로가 역삼동을 벗어나지 않도록 구역 밖 지상 엣지는 그래프에서 제외
+      // (지하보도는 관문역이 경계에 걸쳐 있으므로 예외)
+      if (
+        !way.isUnderground &&
+        !way.isEntranceLink &&
+        !isInYeoksam(mid.lat, mid.lng) &&
+        distanceToYeoksamBoundary(mid) > OUTSIDE_BOUNDARY_BUFFER_M
+      ) {
+        continue
       }
 
       let cost: number

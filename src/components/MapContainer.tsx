@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouteStore } from '@/store/routeStore'
-import { YEOKSAM_RINGS } from '@/utils/serviceArea'
+import { YEOKSAM_RINGS, YEOKSAM_CENTER } from '@/utils/serviceArea'
 import type { RouteResponse } from '@/types/route'
 
 interface TmapLatLng {
@@ -341,20 +341,36 @@ export function MapContainer({ onMapReady }: MapContainerProps) {
         data-testid="map-container"
       />
 
-      {/* 위성 지도 토글 (우상단, 줌 컨트롤 왼쪽) */}
+      {/* 지도 컨트롤 (우상단, 줌 컨트롤 왼쪽): 현위치 + 위성 지도 토글 */}
       {!isLoading && (
-        <button
-          onClick={() => setIsSatellite((prev) => !prev)}
-          className={`absolute top-5 right-14 z-10 h-[36px] px-4 rounded-full text-[13px] tracking-[-0.2px] border backdrop-blur-xl transition active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.10)] ${
-            isSatellite
-              ? 'bg-[#1d1d1f] text-white border-white/20 font-semibold'
-              : 'bg-white/80 text-[#1d1d1f] border-black/[0.08]'
-          }`}
-          aria-pressed={isSatellite}
-          aria-label="위성 지도 전환"
-        >
-          {isSatellite ? '일반 지도' : '위성 지도'}
-        </button>
+        <div className="absolute top-5 right-14 z-10 flex gap-2">
+          <button
+            onClick={() => {
+              const Tmapv2 = window.Tmapv2
+              if (!mapRef.current || !Tmapv2) return
+              mapRef.current.setZoom(15)
+              mapRef.current.panTo(
+                new Tmapv2.LatLng(YEOKSAM_CENTER.lat, YEOKSAM_CENTER.lng)
+              )
+            }}
+            className="h-[36px] px-4 rounded-full text-[13px] tracking-[-0.2px] border backdrop-blur-xl transition active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.10)] bg-white/80 text-[#1d1d1f] border-black/[0.08]"
+            aria-label="역삼동 중심으로 이동"
+          >
+            현위치
+          </button>
+          <button
+            onClick={() => setIsSatellite((prev) => !prev)}
+            className={`h-[36px] px-4 rounded-full text-[13px] tracking-[-0.2px] border backdrop-blur-xl transition active:scale-95 shadow-[0_2px_12px_rgba(0,0,0,0.10)] ${
+              isSatellite
+                ? 'bg-[#1d1d1f] text-white border-white/20 font-semibold'
+                : 'bg-white/80 text-[#1d1d1f] border-black/[0.08]'
+            }`}
+            aria-pressed={isSatellite}
+            aria-label="위성 지도 전환"
+          >
+            {isSatellite ? '일반 지도' : '위성 지도'}
+          </button>
+        </div>
       )}
 
       {isLoading && (
